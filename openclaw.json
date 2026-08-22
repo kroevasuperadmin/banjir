@@ -1,0 +1,24 @@
+// Copy to ~/.openclaw/openclaw.json  (Windows: C:\Users\<you>\.openclaw\openclaw.json). JSON5 — comments allowed.
+// Set env: QWEN_API_KEY, DEVIN_API_KEY  (from the 9:00 workshop)
+{
+  agents: {
+    defaults: {
+      // Qwen = model layer. Replace with the official Qwen 3.8 model ID announced at the workshop.
+      model: { primary: "qwen/qwen3.7-plus" },
+    },
+  },
+  mcp: {
+    servers: {
+      // Malaysian + SEA open-data catalogue, no auth. Gives the agent real gov data tools.
+      pasarapi: {
+        url: "https://pasarapi.xyz/mcp",
+        transport: "streamable-http",
+        requestTimeoutMs: 20000,
+        connectionTimeoutMs: 5000,
+      },
+    },
+  },
+  skills: {
+    load: { extraDirs: ["./skills"] },
+  },
+}
