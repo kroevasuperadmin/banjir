@@ -34,10 +34,9 @@ Full JSON: top station `Sg. Tua di Emp. Batu` is at `ALERT` (level 103.21 m, ale
 
 Malaysians get flood warnings through disconnected official portals and one-way SMS. They cannot ask "is my area flooding?" in plain BM/English and get a live, sourced answer.
 
-- **150,832 evacuees** (44,336 families) nationwide at the Dec 2024 east-coast peak — *Malay Mail, 1 Dec 2024* (EVIDENCE.md).
-- **RM636.9 m flood losses in 2025** — *DOSM / NADMA, 16 Apr 2026* (EVIDENCE.md).
-- **10.1% of Malaysian land is flood-prone; ~5.67 m people affected** — *JPS/DID baseline cited MDPI Water 2023* (EVIDENCE.md).
-- **MyPublicInfoBanjir iOS app: 2.8/5** with reviews saying stations are "all offline" and the app cannot search a destination — *App Store, verified 23 Aug 2026* (EVIDENCE.md).
+- **RM933.4 m flood losses in 2024 → RM636.9 m in 2025** — *DOSM / NADMA, 16 Apr 2026* (EVIDENCE.md).
+- **Nov 2025 floods: ~37,000 evacuees at peak across 7 states** — *JBA Risk* (EVIDENCE.md).
+- **MyPublicInfoBanjir iOS app: 2.8/5, last updated Nov 2022** with reviews saying stations are "all offline" and the app cannot search a destination — *App Store* (EVIDENCE.md).
 
 ## Stack Integration
 

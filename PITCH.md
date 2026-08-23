@@ -1,6 +1,6 @@
 # 2-minute finalist pitch (5:00 PM)
 
-0:00 HOOK — "Akmal in Gombak wakes up to a thunderstorm. He opens three different government apps, none of them tell him if his street will flood. 5.67 million Malaysians live in flood-prone areas."
+0:00 HOOK — "Akmal in Gombak wakes up to a thunderstorm. He opens three different government apps, none of them tell him if his street will flood. Last year Malaysia lost RM636.9 m to floods and 37,000 people were evacuated at the Nov 2025 peak. Sources: DOSM / NADMA; JBA Risk."
 
 0:20 WHAT — "Banjir is an agent: type or say where you are, get live JPS river levels, MET warnings, 24h forecast, what to do, and hotlines — in Bahasa Malaysia and English."
 
