@@ -13,6 +13,9 @@ dependencies = [
     "uvicorn>=0.24.0",
 ]
 
+[tool.setuptools]
+packages = []
+
 [tool.vercel]
 entrypoint = "api.index:app"
 

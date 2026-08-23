@@ -1,5 +1,7 @@
 # DEMO.md — Banjir live demo
 
+**Preview URL:** https://hackathon-claw-2026-pnb0g062j-kroevasuperadmins-projects.vercel.app
+
 ## Prereqs
 - Python 3.11+
 - `pip install -r requirements.txt`

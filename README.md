@@ -2,7 +2,7 @@
 
 > Built at Devin × Claw Collective × Qwen AI Agents Hackathon 2026, Kuala Lumpur, 23 Aug 2026. Theme: AI for a Better Malaysia.
 
-**Live demo:** `https://banjir.vercel.app` (replace with deployed URL) · **Run it:** see [DEMO.md](DEMO.md) · **Team:** Faris Irfan
+**Live demo:** https://hackathon-claw-2026-pnb0g062j-kroevasuperadmins-projects.vercel.app (preview) · **Run it:** see [DEMO.md](DEMO.md) · **Team:** Faris Irfan
 
 ## Verify it runs (10 seconds)
 

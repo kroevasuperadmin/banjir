@@ -3,15 +3,9 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
-      "includeFiles": [
-        "data/**",
-        "web/**"
-      ]
+      "includeFiles": "data/**,web/**"
     }
   },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
-  ],
   "headers": [
     {
       "source": "/(.*)",
