@@ -1,0 +1,2 @@
+Kota Bharu
+Edge case: at least one JPS station in Kelantan is OFFLINE/stale; should show "no reading", not 0.

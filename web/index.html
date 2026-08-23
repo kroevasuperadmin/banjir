@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banjir - let Banjir explain</title>
+<style>
+  body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f0f4f8;color:#1f2937;margin:0;padding:1rem}
+  .wrap{max-width:680px;margin:0 auto}
+  h1{margin:0 0 .25rem;font-size:1.6rem}
+  .sub{color:#4b5563;margin-bottom:1rem}
+  .search{display:flex;gap:.5rem;margin-bottom:1rem}
+  input{flex:1;padding:.75rem;border:1px solid #d1d5db;border-radius:.5rem;font-size:1rem}
+  button{padding:.75rem 1rem;border:0;border-radius:.5rem;background:#0ea5e9;color:#fff;font-size:1rem;cursor:pointer}
+  .card{background:#fff;border-radius:.75rem;padding:1rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .title{font-weight:700;margin-bottom:.5rem}
+  .muted{color:#6b7280;font-size:.875rem}
+  .badge{display:inline-block;padding:.25rem .5rem;border-radius:.375rem;font-size:.75rem;font-weight:700}
+  .bg-red{background:#fee2e2;color:#991b1b}
+  .bg-orange{background:#ffedd5;color:#9a3412}
+  .bg-amber{background:#fef3c7;color:#92400e}
+  .bg-green{background:#d1fae5;color:#065f46}
+  .bg-gray{background:#e5e7eb;color:#374151}
+  .station{padding:.75rem;border:1px solid #e5e7eb;border-radius:.5rem;margin-bottom:.5rem}
+  .checklist li{margin-bottom:.35rem}
+  .pitch{background:#111827;color:#fff}
+  .pitch button{background:#10b981}
+  #loading{display:none;color:#0ea5e9}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Banjir</h1>
+  <p class="sub">Taip atau sebut nama kawasan anda - Banjir cerakinkan risiko banjir terkini.</p>
+  <form id="form" class="search">
+    <input id="place" placeholder="Contoh: Gombak, Kota Bharu, Kg Baru KL" autocomplete="off">
+    <button type="button" id="mic">🎤</button>
+    <button type="submit">Check</button>
+  </form>
+  <div id="loading">Loading…</div>
+  <div id="output"></div>
+  <div id="pitch" class="card pitch" style="display:none">
+    <div class="title">Let Banjir pitch</div>
+    <div id="pitchText"></div>
+    <button id="speak">Narrate</button>
+  </div>
+</div>
+<script>
+const form = document.getElementById('form');
+const place = document.getElementById('place');
+const output = document.getElementById('output');
+const loading = document.getElementById('loading');
+const pitch = document.getElementById('pitch');
+const pitchText = document.getElementById('pitchText');
+
+async function getStatus(q){
+  loading.style.display='block'; output.innerHTML=''; pitch.style.display='none';
+  try{
+    const res = await fetch('/api/status?place='+encodeURIComponent(q));
+    const data = await res.json();
+    render(data);
+  }finally{ loading.style.display='none'; }
+}
+
+function badge(status){
+  const cls={DANGER:'bg-red',WARNING:'bg-orange',ALERT:'bg-amber',NORMAL:'bg-green'}[status]||'bg-gray';
+  return `<span class="badge ${cls}">${status||'UNKNOWN'}</span>`;
+}
+
+function render(data){
+  if(data.place_not_found){
+    output.innerHTML = `<div class="card"><div class="title">${data.message.bm}</div><p>${data.message.en}</p>` +
+      (data.suggestions.length? `<ul>${data.suggestions.map(s=>`<li>${s}</li>`).join('')}</ul>`:'')+'</div>';
+    return;
+  }
+  const e=data.explanation||{};
+  let html=`<div class="card"><div class="title">${e.bm||''}</div><p>${e.en||''}</p>`;
+  html+=`<div class="muted">Risk: ${badge(data.emergency.risk_level)} · State: ${data.resolved_state||'-'}</div>`;
+  html+=`<div class="muted">Generated: ${data.generated_at}</div></div>`;
+  html+=`<div class="card"><div class="title">Nearest JPS stations</div>`;
+  for(const s of data.jps.stations.slice(0,5)){
+    const level = s.level==null ? 'no reading' : `${s.level} m`;
+    const th = [s.normal!=null&&`N:${s.normal}`, s.alert!=null&&`A:${s.alert}`, s.warning!=null&&`W:${s.warning}`, s.danger!=null&&`D:${s.danger}`].filter(Boolean).join(' · ');
+    html+=`<div class="station"><strong>${s.name}</strong> [${s.district}] ${badge(s.status)}<br>`;
+    html+=`Level: <b>${level}</b> · Thresholds: ${th||'none'}<br>`;
+    html+=`Updated: ${s.updated||'unknown'} · Trend: ${s.trend||'-'}</div>`;
+  }
+  html+=`<div class="muted">Source: ${data.jps.source} · ${data.jps.fetched_at}${data.jps.cached?' (cached)':''}</div></div>`;
+
+  html+=`<div class="card"><div class="title">MET warnings (${data.met_warnings.length})</div>`;
+  if(data.met_warnings.length){
+    for(const w of data.met_warnings.slice(0,3)){
+      html+=`<div class="station"><b>${w.title_en||'-'}</b> / ${w.title_bm||'-'}<br>`;
+      html+=`<small>${w.issued||''} → ${w.valid_to||''}</small></div>`;
+    }
+  }else html+='<p>No active warnings.</p>';
+  html+=`<div class="muted">Source: MET Malaysia via data.gov.my</div></div>`;
+
+  const f=data.met_forecast;
+  html+=`<div class="card"><div class="title">Next 24h</div>`;
+  if(f){ html+=`<p>${f.summary_bm} (${f.summary_en}) · ${f.when_en} · ${f.min_temp}-${f.max_temp}°C · ${f.location}</p>`; }
+  else html+='<p>No forecast available.</p>';
+  html+=`<div class="muted">Source: ${f?f.source:'MET Malaysia'}</div></div>`;
+
+  html+=`<div class="card"><div class="title">What to do</div><ul class="checklist">`;
+  for(const c of data.emergency.checklist.slice(0,6)){
+    html+=`<li><b>${c.bm}</b><br><span class="muted">${c.en}</span></li>`;
+  }
+  html+='</ul></div>';
+
+  html+=`<div class="card"><div class="title">Relief centres</div>`;
+  if(data.relief_centres.available){
+    if(data.relief_centres.centres.length){
+      for(const c of data.relief_centres.centres){
+        html+=`<div class="station">${c.name} · ${c.district||''} · ${c.evacuees||0} orang</div>`;
+      }
+    }else html+='<p>No open relief centres in this state right now.</p>';
+  }else{
+    html+=`<p>${data.relief_centres.reason||'Not available'} - <a href="${data.relief_centres.dashboard_url}">JKM InfoBencana</a></p>`;
+  }
+  html+='</div>';
+
+  output.innerHTML=html;
+  pitch.style.display='block';
+}
+
+form.onsubmit=(ev)=>{ev.preventDefault(); getStatus(place.value||'Gombak');};
+
+if('webkitSpeechRecognition' in window){
+  const rec=new webkitSpeechRecognition(); rec.lang='ms-MY'; rec.interimResults=false;
+  document.getElementById('mic').onclick=()=>{rec.start();};
+  rec.onresult=(e)=>{place.value=e.results[0][0].transcript; getStatus(place.value);};
+}
+
+let lastPitch=null;
+pitch.querySelector('button').onclick=async()=>{
+  const q=place.value||'Gombak';
+  const res=await fetch('/api/pitch?place='+encodeURIComponent(q));
+  const d=await res.json();
+  lastPitch=d;
+  pitchText.innerHTML=`<p><b>BM:</b> ${d.pitch_bm}</p><p><b>EN:</b> ${d.pitch_en}</p>`;
+  if('speechSynthesis' in window){
+    const u=new SpeechSynthesisUtterance(d.pitch_bm); u.lang='ms-MY'; speechSynthesis.speak(u);
+  }
+};
+</script>
+</body>
+</html>

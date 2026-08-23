@@ -1,23 +1,37 @@
-# DEMO — reproducible in 3 commands
+# DEMO.md — Banjir live demo
 
 ## Prereqs
-- Node 20+, Python 3.11+
-- `npm i -g openclaw`
-- Env: `QWEN_API_KEY=...`  `DEVIN_API_KEY=...` (optional — tool degrades gracefully)
+- Python 3.11+
+- `pip install -r requirements.txt`
+- (Optional) Qwen key: copy `.env.example` to `.env` and fill `QWEN_API_KEY`
 
-## Run
+## Run local (any OS)
 ```bash
-cp openclaw.json ~/.openclaw/openclaw.json      # Windows: copy openclaw.json %USERPROFILE%\.openclaw\openclaw.json
-openclaw config validate
-./run_demo.sh                                    # Windows: .\run_demo.ps1
+# Windows PowerShell
+.\run_demo.ps1
+
+# macOS / Linux
+chmod +x run_demo.sh
+./run_demo.sh
 ```
 
-## Expected output (sample 1 — [warung order])
-```
-[paste the real output here at 2:30 PM]
-```
+The script starts `uvicorn` on `http://127.0.0.1:8000` if it is not already listening, then calls `/api/status?place=Gombak`.
 
 ## What the judge should notice
-1. Model used: `qwen/[id]` (see first log line)
-2. Tool calls: `pasarapi.*` MCP tool → real Malaysian data returned
-3. `devin_builder` invoked on sample 3 (unknown format) → Devin session URL printed
+1. **Live data:** response contains real JPS river levels for `Sg. Tua di Emp. Batu`, real MET warnings, and real MET forecast.
+2. **Sources:** every card carries the publisher and a timestamp.
+3. **Edge cases:**
+   - Unknown place: `curl /api/status?place=Atlantis` returns `place_not_found: true` + suggestions.
+   - Offline station: `curl /api/status?place=Kota%20Bharu` includes the Kedah/Kelantan stations marked `OFFLINE`.
+   - JPS down: the API falls back to `BANJIR_JPS_CACHE`; the UI shows a `cached` badge.
+
+## Web + pitch
+1. Open `http://127.0.0.1:8000/` on a phone.
+2. Type or tap the mic and say a place.
+3. Tap **Let Banjir pitch** — the agent narrates a 30-second pitch using today's readings.
+
+## Telegram (Hermes)
+1. Copy `hermes/plugins/banjir/` to `%LOCALAPPDATA%\hermes\plugins\banjir` (Windows) or `~/.hermes/plugins/banjir` (macOS).
+2. Set `BANJIR_API_BASE` to the Vercel URL.
+3. `hermes plugins enable banjir && hermes gateway run`.
+4. DM the bot: `Gombak banjir ke sekarang?`

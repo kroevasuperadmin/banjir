@@ -156,6 +156,20 @@ def nearest(place, stations=None, limit=10):
     q = _norm(place)
     if not q:
         return []
+    # Gazetteer first: towns/suburbs -> JPS district (JPS has no coordinates; see data/places.py).
+    try:
+        from places import resolve as _resolve
+    except ImportError:  # imported as a package (data.jps)
+        from .places import resolve as _resolve
+    hit = _resolve(place)
+    if hit:
+        code, district, _ = hit
+        pool = stations if stations is not None else fetch_all()
+        exact = [s for s in pool if s["state"] == code and s["district"] == district]
+        if exact:
+            order = {"DANGER": 0, "WARNING": 1, "ALERT": 2, "NORMAL": 3}
+            exact.sort(key=lambda s: order.get(s["status"], 9))
+            return exact[:limit]
     scored = []
     for s in stations if stations is not None else fetch_all():
         best = 0.0

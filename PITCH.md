@@ -1,10 +1,15 @@
 # 2-minute finalist pitch (5:00 PM)
 
-0:00 HOOK — "[Name a real person/business]. In 2026 they have to [the mandated/painful thing]. They can't. [Number] Malaysian businesses are in the same spot."
-0:20 WHAT — "[Kira] is an agent: paste the [input], get [the compliant/useful output] in [X] seconds, in BM or English."
-0:35 LIVE DEMO — sample 1 only. Narrate the 3 things: Qwen reasoning → PasarAPI Malaysian data pulled → output. (GIF on screen as backup if it stalls.)
-1:30 PROOF — "We're not guessing who wants this. [PulseLink / Helm's 20 clinics and schools] pilot Monday. I sell to Malaysian SMEs for a living."
-1:45 STACK — one slide: Qwen = brain, OpenClaw = body, Devin = hands (built it + writes new connectors at runtime).
-1:55 CLOSE — "AI for a better Malaysia means the smallest business gets the same tools as the biggest. That's [Kira]."
+0:00 HOOK — "Akmal in Gombak wakes up to a thunderstorm. He opens three different government apps, none of them tell him if his street will flood. 5.67 million Malaysians live in flood-prone areas."
 
-Rules: don't explain the code. Don't say "we ran out of time". One demo, one sample. Look at the judges before you start.
+0:20 WHAT — "Banjir is an agent: type or say where you are, get live JPS river levels, MET warnings, 24h forecast, what to do, and hotlines — in Bahasa Malaysia and English."
+
+0:35 LIVE DEMO — one sample: Gombak. Show the ALERT station, the forecast, the checklist, then tap 'Let Banjir pitch' so the agent narrates using today's real numbers.
+
+1:30 PROOF — "Public problem, public data: JPS, MET, JKM. The agent is live on Vercel and works even when Qwen is not connected. Judges can open it on their phones right now."
+
+1:45 STACK — one slide: Devin = built it, Hermes = runs the Telegram agent, Qwen = the voice. All three partner tools are present at runtime.
+
+1:55 CLOSE — "AI for a better Malaysia means every Malaysian can ask 'banjir ke?' and get a sourced, calm answer in seconds. That's Banjir."
+
+Rules: don't explain the code. Don't say 'we ran out of time'. One demo, one sample. Look at the judges before you start.

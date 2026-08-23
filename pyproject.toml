@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "banjir"
+version = "0.1.0"
+description = "Malaysian flood-awareness agent for #BuildForMsia"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.1",
+    "requests>=2.31.0",
+    "uvicorn>=0.24.0",
+]
+
+[tool.vercel]
+entrypoint = "api.index:app"
+
+[tool.vercel.scripts]
+build = "python -c 'print(\"Vercel build: nothing to compile\")'"

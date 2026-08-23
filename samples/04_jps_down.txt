@@ -1,0 +1,3 @@
+JPS down simulation
+Edge case: if publicinfobanjir.water.gov.my is unreachable, the API falls back to its last-good disk cache and shows a "cached" badge.
+To demo: add BANJIR_JPS_CACHE with a stale file, or rely on the in-built cache fallback on first failure.
