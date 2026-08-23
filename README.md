@@ -59,6 +59,10 @@ Data sources at runtime: JPS Public InfoBanjir (`data/jps.py`), MET Malaysia via
   2. Station offline / `-` values → JPS status = `OFFLINE`; UI shows "no reading".
   3. JPS site down → `api/index.py` falls back to last-good disk cache with a visible `cached` badge.
 
+## The Watcher + agent-led presentation
+
+Banjir doesn't wait to be asked. `scripts/force_alert.py <place> <lang>` pulls the live JPS reading and pushes an unsolicited alert into Telegram — the same data and delivery path a background 24/7 watcher would use the moment a station crosses its threshold. `scripts/present_yourself.py <lang>` has the agent introduce itself to a chat using this minute's real numbers — an agent-led presentation, not a canned script. See [PITCH.md](PITCH.md) for the full demo.
+
 ## Sustainability
 
 - **Real problem, real data:** JPS, MET, JKM feeds are public and already maintained by Malaysian agencies.
