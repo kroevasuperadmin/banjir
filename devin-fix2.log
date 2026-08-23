@@ -1,0 +1,128 @@
+Preview URL: **https://hackathon-claw-2026-pnb0g062j-kroevasuperadmins-projects.vercel.app**
+
+### 1. Gombak
+
+```json
+{
+    "ok": true,
+    "place": "Gombak",
+    "resolved_state": "WP Kuala Lumpur",
+    "state_code": "WLH",
+    "generated_at": "2026-08-23T12:20:45.924477+08:00",
+    "request_seconds": 0.38,
+    "jps": {
+        "source": "JPS Malaysia (publicinfobanjir)",
+        "source_url": "https://publicinfobanjir.water.gov.my",
+        "fetched_at": "2026-08-23T12:20:45.924459+08:00",
+        "cached": false,
+        "last_errors": {},
+        "station_count": 46,
+        "latest_station_update": "2026-08-23T12:15:00",
+        "stations": [
+            {
+                "state": "WLH",
+                "station_id": "0233061WL",
+                "name": "Sg. Tua di Emp. Batu",
+                "district": "Gombak (WPKL)",
+                "basin": "Sungai Klang (WPKL)",
+                "sub_basin": "Sg. Batu",
+                "updated": "2026-08-23T12:05:00",
+                "level": 103.21,
+                "normal": 102.7,
+                "alert": 103.1,
+                "warning": 104.1,
+                "danger": 104.8,
+                "status": "ALERT",
+                "rain_last_hour_mm": 0.0,
+                "rain_today_mm": 0.0,
+                "trend": "steady - no rain nearby"
+            },
+            ...
+        ]
+    },
+    "met_warnings": [],
+    "met_warnings_all_count": 3,
+    "met_warnings_all_summary": [...],
+    "met_forecast": { ... },
+    "relief_centres": { "count": 0, "national": { "count": 3, "states": ["Sabah","Sarawak"], "disaster_types": ["Kebakaran"] } },
+    ...
+}
+```
+
+### 2. Shah Alam
+
+```json
+{
+    "ok": true,
+    "place": "Shah Alam",
+    "resolved_state": "Selangor",
+    "state_code": "SEL",
+    "generated_at": "2026-08-23T12:20:46.413048+08:00",
+    "request_seconds": 0.02,
+    "jps": {
+        "station_count": 64,
+        "stations": [
+            {
+                "state": "SEL",
+                "station_id": "3115180",
+                "name": "Sg. Buloh di Paya Jaras",
+                "district": "Petaling",
+                "level": 19.33,
+                "normal": 22.0,
+                "alert": 23.7,
+                "warning": 24.3,
+                "danger": 25.2,
+                "status": "NORMAL",
+                ...
+            },
+            ...
+        ]
+    },
+    "met_warnings": [],
+    ...
+}
+```
+
+### 3. Atlantis
+
+```json
+{
+    "ok": false,
+    "place": "Atlantis",
+    "place_not_found": true,
+    "suggestions": [
+        "gombak",
+        "kuala lumpur",
+        "kota bharu",
+        "petaling jaya",
+        "johor bahru",
+        "george town",
+        "kuching",
+        "kota kinabalu"
+    ],
+    "message_en": "We couldn't find 'Atlantis'. Try one of these nearby areas:",
+    "message_bm": "Kami tidak jumpa 'Atlantis'. Cuba kawasan berikut:",
+    "generated_at": "2026-08-23T12:20:46.965730+08:00",
+    "sources": [
+        {
+            "name": "JPS Malaysia",
+            "url": "https://publicinfobanjir.water.gov.my",
+            "status": "no station match"
+        }
+    ]
+}
+```
+
+### Commits
+
+```
+78ad39f devin: Vercel preview URL and routing fix
+7800115 devin: presentation fixes and Atlantis sample
+a183155 devin: run_demo scripts kill-and-restart
+80c3cca devin: Vercel serverless sanity
+82348dd devin: replace unverified numbers in README and PITCH
+7f7b87f devin: warm JPS cache and fetch only the resolved state
+56ac18c devin: fix Atlantis 500
+```
+
+Pushed to `origin/master`. No `--prod` deployed — preview is ready for promotion.

@@ -445,8 +445,17 @@ def _qwen_call(prompt, fallback_dict, max_tokens=200):
         if parsed:
             return {"en": parsed["en"], "bm": parsed["bm"], "fallback": False, "model": model}
 
-        # Non-JSON but valid text: use the whole text for both languages as a last resort
-        return {"en": text, "bm": text, "fallback": False, "model": model}
+        # Truncated / malformed JSON: salvage the quoted "en"/"bm" strings so the UI never shows raw braces.
+        import re as _re
+        def _grab(k):
+            m = _re.search(r'"%s"\s*:\s*"((?:[^"\\]|\\.)*)' % k, text, _re.S)
+            return m.group(1).encode().decode("unicode_escape", "ignore").strip() if m else None
+        en, bm = _grab("en"), _grab("bm")
+        if en:
+            return {"en": en, "bm": bm or fallback_dict.get("bm", en), "fallback": False, "model": model, "llm_error": "partial JSON salvaged"}
+        if text.lstrip().startswith("{"):
+            return dict(fallback_dict, fallback=True, model=model, llm_error="unparseable JSON from Qwen")
+        return {"en": text.strip(), "bm": text.strip(), "fallback": False, "model": model}
     except Exception as e:
         return dict(fallback_dict, fallback=True, model=model, llm_error=str(e))
 
