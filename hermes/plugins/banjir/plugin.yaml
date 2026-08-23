@@ -1,0 +1,6 @@
+name: banjir
+version: 0.1.0
+description: "Banjir flood-status tool — calls the Banjir API (/api/status?place=) for live JPS river levels + MET warnings."
+author: Banjir team
+provides_tools:
+  - flood_status
