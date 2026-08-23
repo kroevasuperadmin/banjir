@@ -525,7 +525,7 @@ def _qwen_pitch(place, data, fallback):
         f"Status: {compact.get('station_status')}. Alert: {compact.get('thresholds', {}).get('alert')}. "
         f"Trend: {compact.get('trend')}. Forecast: {compact.get('forecast_en')} / {compact.get('forecast_bm')}."
     )
-    return _qwen_call(prompt, fallback, max_tokens=220)
+    return _qwen_call(prompt, fallback, max_tokens=600)
 
 
 # ---------------------------------------------------------------------------
