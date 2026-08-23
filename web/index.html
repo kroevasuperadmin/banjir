@@ -29,47 +29,261 @@
   #loading{display:none;color:#0ea5e9}
   .period{margin-bottom:.4rem}
   .areas{font-size:.8rem;color:#4b5563}
+  .lang{display:flex;gap:.5rem;margin-bottom:1rem}
+  .lang button{background:#e5e7eb;color:#374151;font-size:.875rem;padding:.4rem .75rem}
+  .lang button.active{background:#111827;color:#fff}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Banjir</h1>
-  <p class="sub">Type or say where you are. Banjir reads the latest flood risk for your area.</p>
-  <p class="bm">Taip atau sebut nama kawasan anda - Banjir cerakinkan risiko banjir terkini.</p>
+  <p class="sub" id="tagline"></p>
+  <div class="lang" id="lang">
+    <button type="button" data-lang="en">EN</button>
+    <button type="button" data-lang="bm">BM</button>
+    <button type="button" data-lang="zh">中文</button>
+  </div>
   <form id="form" class="search">
-    <input id="place" placeholder="Example: Gombak, Kota Bharu, Kg Baru KL" autocomplete="off">
+    <input id="place" autocomplete="off">
     <button type="button" id="mic">🎤</button>
-    <button type="submit">Check</button>
+    <button type="submit" id="check"></button>
   </form>
-  <div id="loading">Loading…</div>
+  <div id="loading"></div>
   <div id="output"></div>
   <div id="pitch" class="card pitch" style="display:none">
-    <div class="title">Let Banjir pitch</div>
+    <div class="title" id="pitchTitle"></div>
     <div id="pitchText"></div>
-    <button id="speak">Narrate</button>
-    <button id="speakBm" style="background:#0ea5e9">Narrate in BM</button>
+    <button id="speak"></button>
   </div>
 </div>
 <script>
+const i18n = {
+  en: {
+    tagline: "Type or say where you are. Banjir reads the latest flood risk for your area.",
+    placeholder: "Example: Gombak, Kota Bharu, Kg Baru KL",
+    check: "Check",
+    loading: "Loading…",
+    nearestStations: "Nearest JPS stations",
+    noReading: "no reading",
+    level: "Level",
+    levelValue: "{{level}} m",
+    thresholds: "Thresholds",
+    none: "none",
+    updated: "Updated",
+    trend: "Trend",
+    metWarnings: "MET warnings for {{state}}",
+    noWarnings: "No active warnings.",
+    noMetState: "No MET warnings for {{state}} right now. {{count}} active nationally ({{types}}; {{areas}}) — {{viewAll}}.",
+    next24h: "Next 24h",
+    noForecast: "No forecast available.",
+    latestNews: "Latest news",
+    newsDisclaimer: "News reports — not an official warning",
+    whatToDo: "What to do",
+    reliefCentres: "Relief centres",
+    noOpenRelief: "No open relief centres in {{state}} right now.",
+    reliefNational: "{{count}} open nationally ({{states}}; {{types}})",
+    notAvailable: "Not available",
+    reliefUnavailable: "{{reason}} — <a href=\"{{url}}\">JKM InfoBencana</a>",
+    dataSources: "Data sources & updates",
+    sourceJps: "JPS Malaysia — Jabatan Pengairan dan Saliran (publicinfobanjir.water.gov.my): river levels, thresholds, rainfall",
+    sourceMet: "MET Malaysia — Jabatan Meteorologi via data.gov.my: warnings + forecast",
+    sourceJkm: "JKM — Jabatan Kebajikan Masyarakat InfoBencana: relief centres + evacuees",
+    sourceHotlines: "NADMA/Bomba/JKM: hotlines + checklist",
+    sourceNews: "Google News RSS: news",
+    footerNote: "Nearest station is matched by district name, not GPS. 'No data' is never shown as 'safe'.",
+    letBanjirPitch: "Let Banjir pitch",
+    narrate: "Narrate",
+    justNow: "just now",
+    minutesAgo: "{{n}}m ago",
+    hoursAgo: "{{n}}h ago",
+    daysAgo: "{{n}}d ago",
+    risk: "Risk",
+    state: "State",
+    generated: "Generated",
+    source: "Source",
+    viewAll: "view all",
+    malaysia: "Malaysia",
+    unknown: "UNKNOWN",
+    placeNotFound: "We couldn't find {{place}}. {{suffix}}",
+    placeNotFoundSuffix: "Try one of these nearby areas:",
+    people: "people",
+    areas: "Areas",
+    status: {DANGER:'DANGER', WARNING:'WARNING', ALERT:'ALERT', NORMAL:'NORMAL', OFFLINE:'OFFLINE', UNKNOWN:'UNKNOWN'},
+    templateFallback: "template fallback"
+  },
+  bm: {
+    tagline: "Taip atau sebut nama kawasan anda. Banjir cerakinkan risiko banjir terkini.",
+    placeholder: "Contoh: Gombak, Kota Bharu, Kg Baru KL",
+    check: "Semak",
+    loading: "Memuatkan…",
+    nearestStations: "Stesen JPS terhampir",
+    noReading: "tiada bacaan",
+    level: "Paras",
+    levelValue: "{{level}} m",
+    thresholds: "Ambang",
+    none: "tiada",
+    updated: "Dikemas kini",
+    trend: "Trend",
+    metWarnings: "Amaran MET untuk {{state}}",
+    noWarnings: "Tiada amaran aktif.",
+    noMetState: "Tiada amaran MET untuk {{state}} sekarang. {{count}} aktif di seluruh negara ({{types}}; {{areas}}) — {{viewAll}}.",
+    next24h: "24 jam seterusnya",
+    noForecast: "Ramalan tidak tersedia.",
+    latestNews: "Berita terkini",
+    newsDisclaimer: "Laporan berita — bukan amaran rasmi",
+    whatToDo: "Apa yang perlu dilakukan",
+    reliefCentres: "Pusat pemindahan",
+    noOpenRelief: "Tiada pusat pemindahan dibuka di {{state}} sekarang.",
+    reliefNational: "{{count}} dibuka di seluruh negara ({{states}}; {{types}})",
+    notAvailable: "Tidak tersedia",
+    reliefUnavailable: "{{reason}} — <a href=\"{{url}}\">JKM InfoBencana</a>",
+    dataSources: "Sumber data & kemas kini",
+    sourceJps: "JPS Malaysia — Jabatan Pengairan dan Saliran (publicinfobanjir.water.gov.my): paras sungai, ambang, hujan",
+    sourceMet: "MET Malaysia — Jabatan Meteorologi melalui data.gov.my: amaran + ramalan",
+    sourceJkm: "JKM — Jabatan Kebajikan Masyarakat InfoBencana: pusat pemindahan + mangsa",
+    sourceHotlines: "NADMA/Bomba/JKM: talian kecemasan + senarai semak",
+    sourceNews: "Google News RSS: berita",
+    footerNote: "Stesen terhampir dipadankan mengikut nama daerah, bukan GPS. 'Tiada data' tidak ditunjukkan sebagai 'selamat'.",
+    letBanjirPitch: "Biar Banjir pitch",
+    narrate: "Bacakan",
+    justNow: "baru sahaja",
+    minutesAgo: "{{n}}m lalu",
+    hoursAgo: "{{n}}j lalu",
+    daysAgo: "{{n}}h lalu",
+    risk: "Risiko",
+    state: "Negeri",
+    generated: "Dijana",
+    source: "Sumber",
+    viewAll: "lihat semua",
+    malaysia: "Malaysia",
+    unknown: "TIDAK DIKETAHUI",
+    placeNotFound: "Kami tidak jumpa {{place}}. {{suffix}}",
+    placeNotFoundSuffix: "Cuba kawasan berikut:",
+    people: "orang",
+    areas: "Kawasan",
+    status: {DANGER:'BAHAYA', WARNING:'AMARAN', ALERT:'BERJAGA-JAGA', NORMAL:'NORMAL', OFFLINE:'LUAR TALIAN', UNKNOWN:'TIDAK DIKETAHUI'},
+    templateFallback: "template fallback"
+  },
+  zh: {
+    tagline: "输入或说出您所在的位置。Banjir 会读取您地区的最新水灾风险。",
+    placeholder: "例如：Gombak、Kota Bharu、Kg Baru KL",
+    check: "查询",
+    loading: "加载中…",
+    nearestStations: "最近的水利灌溉局站点",
+    noReading: "无数据",
+    level: "水位",
+    levelValue: "{{level}} 米",
+    thresholds: "阈值",
+    none: "无",
+    updated: "更新于",
+    trend: "趋势",
+    metWarnings: "{{state}} 的气象局警告",
+    noWarnings: "没有活跃警告。",
+    noMetState: "目前 {{state}} 没有气象局警告。全国有 {{count}} 个活跃警告（{{types}}；{{areas}}）— {{viewAll}}。",
+    next24h: "未来24小时",
+    noForecast: "没有天气预报。",
+    latestNews: "最新新闻",
+    newsDisclaimer: "新闻报道 — 非官方警告",
+    whatToDo: "应急须知",
+    reliefCentres: "疏散中心",
+    noOpenRelief: "目前 {{state}} 没有开放的疏散中心。",
+    reliefNational: "全国有 {{count}} 个开放（{{states}}；{{types}}）",
+    notAvailable: "无法获取",
+    reliefUnavailable: "{{reason}} — <a href=\"{{url}}\">JKM InfoBencana</a>",
+    dataSources: "数据来源与更新",
+    sourceJps: "水利灌溉局 JPS Malaysia（publicinfobanjir.water.gov.my）：河流水位、警戒阈值、雨量",
+    sourceMet: "气象局 MET Malaysia（data.gov.my）：天气警告与预报",
+    sourceJkm: "社会福利局 JKM InfoBencana：疏散中心与灾民人数",
+    sourceHotlines: "NADMA/消拯局/JKM：紧急热线与应急清单",
+    sourceNews: "Google News RSS：新闻",
+    footerNote: "最近站点按县名匹配，非 GPS。「没有数据」不会显示为「安全」。",
+    letBanjirPitch: "让 Banjir 介绍",
+    narrate: "朗读",
+    justNow: "刚刚",
+    minutesAgo: "{{n}} 分钟前",
+    hoursAgo: "{{n}} 小时前",
+    daysAgo: "{{n}} 天前",
+    risk: "风险",
+    state: "州属",
+    generated: "生成于",
+    source: "来源",
+    viewAll: "查看全部",
+    malaysia: "马来西亚",
+    unknown: "未知",
+    placeNotFound: "找不到「{{place}}」。{{suffix}}",
+    placeNotFoundSuffix: "请试试以下邻近地区：",
+    people: "人",
+    areas: "地区",
+    status: {DANGER:'危险', WARNING:'警告', ALERT:'警戒', NORMAL:'正常', OFFLINE:'离线', UNKNOWN:'未知'},
+    templateFallback: "模板备用"
+  }
+};
+
+const VOICE = {en:'en-GB', bm:'ms-MY', zh:'zh-CN'};
+const RECOG = {en:'en-MY', bm:'ms-MY', zh:'zh-CN'};
+
+let lang = localStorage.getItem('banjir-lang') || 'en';
+let lastData = null;
+let lastPitch = null;
+
 const form = document.getElementById('form');
 const place = document.getElementById('place');
 const output = document.getElementById('output');
 const loading = document.getElementById('loading');
 const pitch = document.getElementById('pitch');
 const pitchText = document.getElementById('pitchText');
+const pitchTitle = document.getElementById('pitchTitle');
+const speakBtn = document.getElementById('speak');
+const tagline = document.getElementById('tagline');
+const checkBtn = document.getElementById('check');
+const langBtns = document.querySelectorAll('#lang button');
+const mic = document.getElementById('mic');
+
+function escapeHtml(str){
+  if(str==null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function t(key, params){
+  const s = (i18n[lang] && i18n[lang][key]) || i18n.en[key] || key;
+  if(!params) return s;
+  return Object.entries(params).reduce((acc,[k,v])=>acc.replace(new RegExp('{{'+k+'}}','g'), v), s);
+}
+
+function statusLabel(status){
+  return (i18n[lang].status[status] || i18n.en.status[status] || t('unknown'));
+}
+
+function setLang(l){
+  lang = l;
+  localStorage.setItem('banjir-lang', lang);
+  document.documentElement.lang = lang==='zh'?'zh-CN':lang==='bm'?'ms':'en';
+  langBtns.forEach(b=>b.classList.toggle('active', b.dataset.lang===lang));
+  tagline.textContent = t('tagline');
+  place.placeholder = t('placeholder');
+  checkBtn.textContent = t('check');
+  loading.textContent = t('loading');
+  pitchTitle.textContent = t('letBanjirPitch');
+  speakBtn.textContent = t('narrate');
+  if(lastData) render(lastData);
+  if(lastPitch) renderPitch();
+}
+
+langBtns.forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
 
 async function getStatus(q){
   loading.style.display='block'; output.innerHTML=''; pitch.style.display='none';
   try{
     const res = await fetch('/api/status?place='+encodeURIComponent(q));
     const data = await res.json();
+    lastData = data;
     render(data);
   }finally{ loading.style.display='none'; }
 }
 
 function badge(status){
   const cls={DANGER:'bg-red',WARNING:'bg-orange',ALERT:'bg-amber',NORMAL:'bg-green',UNKNOWN:'bg-gray',OFFLINE:'bg-gray'}[status]||'bg-gray';
-  return `<span class="badge ${cls}">${status||'UNKNOWN'}</span>`;
+  return `<span class="badge ${cls}">${statusLabel(status)}</span>`;
 }
 
 function timeAgo(iso){
@@ -77,10 +291,10 @@ function timeAgo(iso){
   const d = new Date(iso);
   if(isNaN(d)) return iso;
   const diff = Math.max(0, Math.floor((Date.now() - d) / 1000));
-  if(diff < 60) return 'just now';
-  if(diff < 3600) return Math.floor(diff/60) + 'm ago';
-  if(diff < 86400) return Math.floor(diff/3600) + 'h ago';
-  if(diff < 604800) return Math.floor(diff/86400) + 'd ago';
+  if(diff < 60) return t('justNow');
+  if(diff < 3600) return t('minutesAgo', {n: Math.floor(diff/60)});
+  if(diff < 86400) return t('hoursAgo', {n: Math.floor(diff/3600)});
+  if(diff < 604800) return t('daysAgo', {n: Math.floor(diff/86400)});
   return d.toLocaleDateString();
 }
 
@@ -91,95 +305,105 @@ function fmtTime(iso){
   return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 }
 
+function summaryText(obj){
+  return escapeHtml(obj && obj[lang] || obj && obj.en || '');
+}
+
 function render(data){
   if(data.place_not_found){
-    output.innerHTML = `<div class="card"><div class="title">${data.message_en}</div><p class="bm">${data.message_bm}</p>` +
-      (data.suggestions.length? `<ul>${data.suggestions.map(s=>`<li>${s}</li>`).join('')}</ul>`:'')+'</div>';
+    const msg = escapeHtml(data['message_'+lang] || data.message_en);
+    output.innerHTML = `<div class="card"><div class="title">${msg}</div>` +
+      (data.suggestions.length? `<ul>${data.suggestions.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ul>`:'')+'</div>';
     return;
   }
   const e=data.explanation||{};
-  let html=`<div class="card"><div class="title">${e.en||''}</div><p class="bm">${e.bm||''}</p>`;
-  html+=`<div class="muted">Risk: ${badge(data.emergency.risk_level)} · State: ${data.resolved_state||'-'}`;
-  if(e.fallback===false) html+=` · Model: ${e.model}`;
-  if(e.fallback===true) html+=` · <span class="bg-amber badge">template fallback</span> ${e.model||''}`;
-  if(e.llm_error) html+=` · <span class="bg-red badge">error</span> ${e.llm_error}`;
-  html+=`</div><div class="muted">Generated: ${data.generated_at}</div></div>`;
+  let html=`<div class="card"><div class="title">${summaryText(e)}</div>`;
+  html+=`<div class="muted">${t('risk')}: ${badge(data.emergency.risk_level)} · ${t('state')}: ${escapeHtml(data.resolved_state||'-')}`;
+  if(e.fallback===false) html+=` · Model: ${escapeHtml(e.model)}`;
+  if(e.fallback===true) html+=` · <span class="bg-amber badge">${t('templateFallback')}</span> ${escapeHtml(e.model||'')}`;
+  if(e.llm_error) html+=` · <span class="bg-red badge">error</span> ${escapeHtml(e.llm_error)}`;
+  html+=`</div><div class="muted">${t('generated')}: ${escapeHtml(data.generated_at)}</div></div>`;
 
-  html+=`<div class="card"><div class="title">Nearest JPS stations</div>`;
+  html+=`<div class="card"><div class="title">${t('nearestStations')}</div>`;
   for(const s of data.jps.stations.slice(0,5)){
-    const level = s.level==null ? 'no reading' : `${s.level} m`;
+    const level = s.level==null ? t('noReading') : t('levelValue', {level: s.level});
     const th = [s.normal!=null&&`N:${s.normal}`, s.alert!=null&&`A:${s.alert}`, s.warning!=null&&`W:${s.warning}`, s.danger!=null&&`D:${s.danger}`].filter(Boolean).join(' · ');
-    html+=`<div class="station"><strong>${s.name}</strong> [${s.district}] ${badge(s.status)}<br>`;
-    html+=`Level: <b>${level}</b> · Thresholds: ${th||'none'}<br>`;
-    html+=`Updated: ${s.updated||'unknown'} · Trend: ${s.trend||'-'}</div>`;
+    html+=`<div class="station"><strong>${escapeHtml(s.name)}</strong> [${escapeHtml(s.district)}] ${badge(s.status)}<br>`;
+    html+=`${t('level')}: <b>${escapeHtml(level)}</b> · ${t('thresholds')}: ${th||t('none')}<br>`;
+    html+=`${t('updated')}: ${escapeHtml(s.updated||'-')} · ${t('trend')}: ${escapeHtml(s.trend||'-')}</div>`;
   }
-  html+=`<div class="muted">Source: ${data.jps.source} · ${data.jps.fetched_at}${data.jps.cached?' (cached)':''}</div></div>`;
+  html+=`<div class="muted">${t('source')}: ${escapeHtml(data.jps.source)} · ${escapeHtml(data.jps.fetched_at)}${data.jps.cached?' (cached)':''}</div></div>`;
 
-  html+=`<div class="card"><div class="title">MET warnings for ${data.resolved_state||'Malaysia'}</div>`;
+  html+=`<div class="card"><div class="title">${t('metWarnings', {state: escapeHtml(data.resolved_state||t('malaysia'))})}</div>`;
   if(data.met_warnings.length){
     for(const w of data.met_warnings.slice(0,3)){
-      html+=`<div class="station"><b>${w.title_en||'-'}</b><span class="bm"> / ${w.title_bm||'-'}</span><br>`;
-      html+=`<small>${w.issued||''} → ${w.valid_to||''}</small><br>`;
-      html+=`<div class="areas">Areas: ${(w.areas||[]).join('; ')||'-'}</div></div>`;
+      const title = escapeHtml(w['title_'+lang] || w.title_en || '-');
+      html+=`<div class="station"><b>${title}</b><br>`;
+      html+=`<small>${escapeHtml(w.issued||'')} → ${escapeHtml(w.valid_to||'')}</small><br>`;
+      html+=`<div class="areas">${t('areas')}: ${(w.areas||[]).join('; ')||'-'}</div></div>`;
     }
   }else if(data.met_warnings_all_count){
     const types = data.met_warnings_all_summary.map(w=>w.title_en).filter((v,i,a)=>a.indexOf(v)===i).join(', ');
     const areas = data.met_warnings_all_summary.map(w=>w.areas.join('; ')).join('; ');
-    html+=`<p>No MET warnings for ${data.resolved_state||'your area'} right now. ` +
-      `${data.met_warnings_all_count} active nationally (${types}; ${areas}) — view all</p>`;
-  }else html+='<p>No active warnings.</p>';
-  html+=`<div class="muted">Source: MET Malaysia via data.gov.my</div></div>`;
+    html+=`<p>${t('noMetState', {state: escapeHtml(data.resolved_state||t('malaysia')), count: data.met_warnings_all_count, types: escapeHtml(types), areas: escapeHtml(areas), viewAll: t('viewAll')})}</p>`;
+  }else html+=`<p>${t('noWarnings')}</p>`;
+  html+=`<div class="muted">${t('source')}: MET Malaysia via data.gov.my</div></div>`;
 
   const f=data.met_forecast;
-  html+=`<div class="card"><div class="title">Next 24h</div>`;
+  html+=`<div class="card"><div class="title">${t('next24h')}</div>`;
   if(f){
-    html+=`<p>${f.location} · ${f.summary_en} <span class="bm">(${f.summary_bm})</span> · ${f.when_en} · ${f.min_temp}-${f.max_temp}°C</p>`;
+    const summary = escapeHtml(f['summary_'+lang] || f.summary_en || '');
+    const when = escapeHtml(f['when_'+lang] || f.when_en || '');
+    html+=`<p>${escapeHtml(f.location)} · ${summary} · ${when} · ${f.min_temp}-${f.max_temp}°C</p>`;
     for(const p of (f.periods||[])){
-      html+=`<div class="period"><b>${p.when_en}</b> <span class="bm">${p.when_bm}</span>: ${p.summary_en} <span class="bm">(${p.summary_bm})</span></div>`;
+      const pwhen = escapeHtml(p['when_'+lang] || p.when_en || '');
+      const psum = escapeHtml(p['summary_'+lang] || p.summary_en || '');
+      html+=`<div class="period"><b>${pwhen}</b>: ${psum}</div>`;
     }
-  } else html+='<p>No forecast available.</p>';
-  html+=`<div class="muted">Source: ${f?f.source:'MET Malaysia'}</div></div>`;
+  } else html+=`<p>${t('noForecast')}</p>`;
+  html+=`<div class="muted">${t('source')}: MET Malaysia</div></div>`;
 
   if(data.news && data.news.length){
-    html+=`<div class="card"><div class="title">Latest news</div>`;
-    html+=`<div class="muted" style="margin-bottom:.5rem">News reports &mdash; not an official warning</div>`;
+    html+=`<div class="card"><div class="title">${t('latestNews')}</div>`;
+    html+=`<div class="muted" style="margin-bottom:.5rem">${t('newsDisclaimer')}</div>`;
     for(const n of data.news.slice(0,5)){
-      html+=`<div class="station"><small class="muted">${n.publisher} &middot; ${timeAgo(n.published)}</small><br>`;
-      html+=`<a href="${n.url}" target="_blank">${n.title}</a></div>`;
+      html+=`<div class="station"><small class="muted">${escapeHtml(n.publisher)} · ${timeAgo(n.published)}</small><br>`;
+      html+=`<a href="${escapeHtml(n.url)}" target="_blank">${escapeHtml(n.title)}</a></div>`;
     }
-    html+=`<div class="muted">Source: Google News RSS</div></div>`;
+    html+=`<div class="muted">${t('source')}: Google News RSS</div></div>`;
   }
 
-  html+=`<div class="card"><div class="title">What to do</div><ul class="checklist">`;
+  html+=`<div class="card"><div class="title">${t('whatToDo')}</div><ul class="checklist">`;
   for(const c of data.emergency.checklist.slice(0,6)){
-    html+=`<li><b>${c.en}</b><br><span class="bm">${c.bm}</span></li>`;
+    const item = escapeHtml(c[lang] || c.en || '');
+    html+=`<li><b>${item}</b></li>`;
   }
   html+='</ul></div>';
 
-  html+=`<div class="card"><div class="title">Relief centres</div>`;
+  html+=`<div class="card"><div class="title">${t('reliefCentres')}</div>`;
   if(data.relief_centres.available){
     if(data.relief_centres.centres.length){
       for(const c of data.relief_centres.centres){
-        html+=`<div class="station">${c.name} · ${c.district||''} · ${c.evacuees||0} people</div>`;
+        html+=`<div class="station">${escapeHtml(c.name)} · ${escapeHtml(c.district||'')} · ${c.evacuees||0} ${t('people')}</div>`;
       }
     }else if(data.relief_centres.national){
       const n=data.relief_centres.national;
-      html+=`<p>No open relief centres in ${data.resolved_state||'this state'} right now. ` +
-        `${n.count} open nationally (${n.states.join(', ')}; ${n.disaster_types.join(', ')}). ` +
+      html+=`<p>${t('noOpenRelief', {state: escapeHtml(data.resolved_state||'-')})} ` +
+        `${t('reliefNational', {count: n.count, states: escapeHtml(n.states.join(', ')), types: escapeHtml(n.disaster_types.join(', '))})}. ` +
         `Source: JKM InfoBencana</p>`;
-    }else html+='<p>No open relief centres in this state right now.</p>';
+    }else html+=`<p>${t('noOpenRelief', {state: escapeHtml(data.resolved_state||'-')})}</p>`;
   }else{
-    html+=`<p>${data.relief_centres.reason||'Not available'} - <a href="${data.relief_centres.dashboard_url}">JKM InfoBencana</a></p>`;
+    html+=`<p>${t('reliefUnavailable', {reason: escapeHtml(data.relief_centres.reason||t('notAvailable')), url: data.relief_centres.dashboard_url})}</p>`;
   }
   html+='</div>';
 
-  html+=`<div class="card"><div class="title">Data sources & updates</div>`;
-  html+=`<div class="muted">JPS Malaysia &mdash; Jabatan Pengairan dan Saliran (publicinfobanjir.water.gov.my): river levels, thresholds, rainfall &middot; updated ${fmtTime(data.jps.latest_station_update)}</div>`;
-  html+=`<div class="muted">MET Malaysia &mdash; Jabatan Meteorologi via data.gov.my: warnings + forecast &middot; updated ${data.met_forecast ? fmtTime(data.met_forecast.fetched_at) : '—'}</div>`;
-  html+=`<div class="muted">JKM &mdash; Jabatan Kebajikan Masyarakat InfoBencana: relief centres + evacuees &middot; updated ${fmtTime(data.relief_centres.fetched_at)}</div>`;
-  html+=`<div class="muted">NADMA/Bomba/JKM: hotlines + checklist &middot; updated ${fmtTime(data.generated_at)}</div>`;
-  html+=`<div class="muted">Google News RSS: news &middot; updated ${data.news && data.news[0] ? fmtTime(data.news[0].published) : '—'}</div>`;
-  html+=`<p class="bm">Nearest station is matched by district name, not GPS. 'No data' is never shown as 'safe'.</p>`;
+  html+=`<div class="card"><div class="title">${t('dataSources')}</div>`;
+  html+=`<div class="muted">${t('sourceJps')} · ${t('updated')} ${fmtTime(data.jps.latest_station_update)}</div>`;
+  html+=`<div class="muted">${t('sourceMet')} · ${t('updated')} ${f ? fmtTime(f.fetched_at) : '—'}</div>`;
+  html+=`<div class="muted">${t('sourceJkm')} · ${t('updated')} ${fmtTime(data.relief_centres.fetched_at)}</div>`;
+  html+=`<div class="muted">${t('sourceHotlines')} · ${t('updated')} ${fmtTime(data.generated_at)}</div>`;
+  html+=`<div class="muted">${t('sourceNews')} · ${t('updated')} ${data.news && data.news[0] ? fmtTime(data.news[0].published) : '—'}</div>`;
+  html+=`<p class="bm">${t('footerNote')}</p>`;
   html+=`</div>`;
 
   output.innerHTML=html;
@@ -189,27 +413,39 @@ function render(data){
 form.onsubmit=(ev)=>{ev.preventDefault(); getStatus(place.value||'Gombak');};
 
 if('webkitSpeechRecognition' in window){
-  const rec=new webkitSpeechRecognition(); rec.lang='en-MY'; rec.interimResults=false;
-  document.getElementById('mic').onclick=()=>{rec.start();};
+  const rec=new webkitSpeechRecognition(); rec.interimResults=false;
+  mic.onclick=()=>{rec.lang=RECOG[lang]||'en-MY'; rec.start();};
   rec.onresult=(e)=>{place.value=e.results[0][0].transcript; getStatus(place.value);};
 }
 
-let lastPitch=null;
+function renderPitch(){
+  if(!lastPitch) return;
+  const text = escapeHtml(lastPitch['pitch_'+lang] || lastPitch.pitch_en);
+  pitchText.innerHTML=`<p>${text}</p>`;
+}
+
+function speak(){
+  if(!('speechSynthesis' in window) || !lastPitch) return;
+  const text = lastPitch['pitch_'+lang] || lastPitch.pitch_en;
+  const u=new SpeechSynthesisUtterance(text); u.lang=VOICE[lang]||'en-GB';
+  speechSynthesis.speak(u);
+}
+
+speakBtn.onclick=()=>{
+  if(lastPitch) speak();
+};
+
 pitch.querySelector('#speak').onclick=async()=>{
   const q=place.value||'Gombak';
   const res=await fetch('/api/pitch?place='+encodeURIComponent(q));
   const d=await res.json();
   lastPitch=d;
-  pitchText.innerHTML=`<p><b>EN:</b> ${d.pitch_en}</p><p class="bm"><b>BM:</b> ${d.pitch_bm}</p>`;
-  if('speechSynthesis' in window){
-    const u=new SpeechSynthesisUtterance(d.pitch_en); u.lang='en-MY'; speechSynthesis.speak(u);
-  }
+  renderPitch();
+  speak();
 };
-document.getElementById('speakBm').onclick=()=>{
-  if('speechSynthesis' in window && lastPitch){
-    const u=new SpeechSynthesisUtterance(lastPitch.pitch_bm); u.lang='ms-MY'; speechSynthesis.speak(u);
-  }
-};
+
+setLang(lang);
+getStatus('Gombak');
 </script>
 </body>
 </html>
