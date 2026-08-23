@@ -2,7 +2,7 @@
 
 > Built at Devin × Claw Collective × Qwen AI Agents Hackathon 2026, Kuala Lumpur, 23 Aug 2026. Theme: AI for a Better Malaysia.
 
-**Live demo:** https://hackathon-claw-2026-pnb0g062j-kroevasuperadmins-projects.vercel.app (preview) · **Run it:** see [DEMO.md](DEMO.md) · **Team:** Faris Irfan
+**Live demo:** https://hackathon-claw-2026.vercel.app · **Run it:** see [DEMO.md](DEMO.md) · **Team:** Faris Irfan
 
 ## Verify it runs (10 seconds)
 
@@ -63,6 +63,18 @@ Data sources at runtime: JPS Public InfoBanjir (`data/jps.py`), MET Malaysia via
 - **Real problem, real data:** JPS, MET, JKM feeds are public and already maintained by Malaysian agencies.
 - **No auth, low cost:** The app runs on free Vercel + public APIs. Qwen is optional.
 - **Next steps (1 week):** (1) add geolocation via HTML5 + nearest station by district; (2) WhatsApp/Telegram broadcast for MET warning push; (3) partner with APM / district offices for the checklist.
+
+## Data sources
+
+| Source | Provider | What we use |
+|---|---|---|
+| JPS Malaysia | Jabatan Pengairan dan Saliran (`publicinfobanjir.water.gov.my`) | River levels, alert/warning/danger thresholds, rainfall, station status |
+| MET Malaysia | Jabatan Meteorologi via `data.gov.my` | Active weather warnings + 24h forecast |
+| JKM | Jabatan Kebajikan Masyarakat InfoBencana | Open relief centres (PPS) and evacuee counts |
+| NADMA / Bomba / JKM | Official emergency guidance | Hotlines and flood-safety checklist |
+| Google News RSS | Local news aggregation | `news` reports (clearly labelled as not an official warning) |
+
+Nearest station is matched by district name, not GPS. "No data" is never shown as "safe".
 
 ## Assumptions & limits
 

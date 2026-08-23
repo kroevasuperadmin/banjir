@@ -13,15 +13,18 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
+from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
+
+load_dotenv()
 
 # Make repo root importable from this package both locally and on Vercel
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from data import emergency, jps, met, places, pps
+from data import emergency, jps, met, news, places, pps
 
 MYT = timezone(timedelta(hours=8))
 
@@ -377,13 +380,30 @@ def _build_explanation(place, stations, risk, forecast, warnings, relief):
     return {"en": en, "bm": bm, "risk_level": status, "risk_color": RISK_COLOR.get(status, "gray")}
 
 
-def _qwen_call(prompt, fallback_dict):
-    """Call Qwen if configured; otherwise return the deterministic fallback."""
+def _extract_json(text):
+    """Qwen sometimes wraps JSON in markdown fences; extract the inner JSON."""
+    if not text:
+        return None
+    m = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.S)
+    if m:
+        text = m.group(1)
+    text = text.strip()
+    try:
+        data = json.loads(text)
+        if "en" in data and "bm" in data:
+            return {"en": data.get("en"), "bm": data.get("bm")}
+    except Exception:
+        pass
+    return None
+
+
+def _qwen_call(prompt, fallback_dict, max_tokens=200):
+    """Call Qwen/ModelScope if configured; otherwise return the deterministic fallback."""
     key = os.environ.get("QWEN_API_KEY")
-    base = os.environ.get("QWEN_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
-    model = os.environ.get("QWEN_MODEL", "qwen3.8-max")
+    base = os.environ.get("QWEN_BASE_URL", "https://api-inference.modelscope.ai/v1")
+    model = os.environ.get("QWEN_MODEL", "Qwen-Ambassador/Qwen3.8-Max")
     if not key:
-        return dict(fallback_dict, fallback=True, model=None)
+        return dict(fallback_dict, fallback=True, model=None, llm_error="QWEN_API_KEY not set")
 
     try:
         r = requests.post(
@@ -393,49 +413,103 @@ def _qwen_call(prompt, fallback_dict):
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.4,
-                "max_tokens": 400,
+                "max_tokens": max_tokens,
+                "enable_thinking": False,
             },
-            timeout=10,
+            timeout=20,
         )
         r.raise_for_status()
-        text = r.json()["choices"][0]["message"]["content"]
-        try:
-            data = json.loads(text)
-            if "bm" in data and "en" in data:
-                return {"en": data.get("en"), "bm": data.get("bm"), "fallback": False, "model": model}
-        except Exception:
-            pass
+        payload = r.json()
+        text = payload.get("choices", [{}])[0].get("message", {}).get("content")
+        if not text:
+            return dict(fallback_dict, fallback=True, model=model, llm_error="empty content from Qwen")
+
+        parsed = _extract_json(text)
+        if parsed:
+            return {"en": parsed["en"], "bm": parsed["bm"], "fallback": False, "model": model}
+
+        # Non-JSON but valid text: use the whole text for both languages as a last resort
         return {"en": text, "bm": text, "fallback": False, "model": model}
     except Exception as e:
-        return dict(fallback_dict, fallback=True, model=model, error=str(e))
+        return dict(fallback_dict, fallback=True, model=model, llm_error=str(e))
+
+
+def _compact(data):
+    """Strip the Qwen prompt down to the numbers it actually needs."""
+    top = data.get("top_station") or {}
+    return {
+        "place": data.get("place"),
+        "state": data.get("state"),
+        "risk": data.get("risk"),
+        "station_name": top.get("name"),
+        "station_district": top.get("district"),
+        "station_level": top.get("level"),
+        "station_status": top.get("status"),
+        "thresholds": {
+            "normal": top.get("normal"),
+            "alert": top.get("alert"),
+            "warning": top.get("warning"),
+            "danger": top.get("danger"),
+        },
+        "trend": top.get("trend"),
+        "warnings_count": data.get("warnings_count"),
+        "forecast_en": data.get("forecast_en"),
+        "forecast_bm": data.get("forecast_bm"),
+        "relief_count": data.get("relief_count"),
+    }
+
+
+def _status_summary(data):
+    """Turn a full /api/status response into a small Qwen prompt."""
+    top = (data.get("jps") or {}).get("stations", [None])[0]
+    forecast = data.get("met_forecast") or {}
+    return {
+        "place": data.get("place"),
+        "state": data.get("resolved_state"),
+        "top_station": top,
+        "risk": data.get("emergency", {}).get("risk_level"),
+        "warnings_count": len(data.get("met_warnings", [])),
+        "forecast_en": forecast.get("summary_en"),
+        "forecast_bm": forecast.get("summary_bm"),
+        "relief_count": (data.get("relief_centres") or {}).get("count"),
+    }
 
 
 def _qwen_explanation(place, data, fallback):
+    compact = _compact(data)
     prompt = (
-        "You are Banjir, a calm Malaysian flood-awareness agent. "
-        "Write a 2-sentence update in English and a 2-sentence update in Bahasa Malaysia. "
-        "Return only JSON with keys 'en' and 'bm'.\n\nData:\n" + json.dumps(data, ensure_ascii=False)
+        "Return JSON {en, bm}. ~25 words each. "
+        f"Place: {place}. State: {compact.get('state')}. "
+        f"Station: {compact.get('station_name')} ({compact.get('station_district')}). "
+        f"Level: {compact.get('station_level')} m. Status: {compact.get('station_status')}. "
+        f"Thresholds: N={compact.get('thresholds', {}).get('normal')} A={compact.get('thresholds', {}).get('alert')} "
+        f"W={compact.get('thresholds', {}).get('warning')} D={compact.get('thresholds', {}).get('danger')}. "
+        f"Trend: {compact.get('trend')}. Warnings: {compact.get('warnings_count')}. "
+        f"Forecast: {compact.get('forecast_en')} / {compact.get('forecast_bm')}."
     )
-    return _qwen_call(prompt, fallback)
+    return _qwen_call(prompt, fallback, max_tokens=120)
 
 
 def _qwen_pitch(place, data, fallback):
+    compact = _compact(data)
     prompt = (
-        "You are Banjir, pitching a 30-second Malaysian flood-awareness agent demo. "
-        "Use the live data below and deliver it confidently in English and Bahasa Malaysia. "
-        "Return only JSON with keys 'en' and 'bm'.\n\nData:\n" + json.dumps(data, ensure_ascii=False)
+        "Return JSON {en, bm}. ~60 words each. Sell Banjir as a live flood agent. "
+        f"Place: {place}. State: {compact.get('state')}. "
+        f"Station: {compact.get('station_name')}. Level: {compact.get('station_level')} m. "
+        f"Status: {compact.get('station_status')}. Alert: {compact.get('thresholds', {}).get('alert')}. "
+        f"Trend: {compact.get('trend')}. Forecast: {compact.get('forecast_en')} / {compact.get('forecast_bm')}."
     )
-    return _qwen_call(prompt, fallback)
+    return _qwen_call(prompt, fallback, max_tokens=220)
 
 
 # ---------------------------------------------------------------------------
 # Status data (used by both /api/status and /api/pitch)
 # ---------------------------------------------------------------------------
-def _status_data(place: str):
+def _status_core(place: str, include_news: bool = True):
     t0 = time.time()
     place = place.strip()
 
-    # 1. resolve place: if the gazetteer gives a state, fetch only that state (~1s)
+    # 1. resolve place: if the gazetteer gives a state, fetch only that state
     resolved = places.resolve(place)
     if resolved:
         state_code, district, _ = resolved
@@ -481,10 +555,10 @@ def _status_data(place: str):
             }],
         }
 
-    # 3. attach trend using state rainfall
+    # 4. attach trend using state rainfall
     _attach_trend(nearest, state_code)
 
-    # 4. resolve a better forecast if place didn't match
+    # 5. resolve a better forecast if place didn't match
     if not forecast:
         for candidate in [nearest[0].get("district"), state_name]:
             if candidate:
@@ -492,24 +566,20 @@ def _status_data(place: str):
                 if forecast:
                     break
 
-    # 5. filter warnings + relief by resolved state; keep national warnings for the UI
+    # 6. filter warnings + relief by resolved state; keep national warnings for the UI
     all_warnings = warnings
     warnings = _filter_warnings(warnings, state_name, place)
     relief = _relief(state_name, place)
 
-    # 6. risk + emergency
+    # 7. news (fetched by /api/status in parallel with Qwen)
+    news_items = []
+
+    # 8. risk + emergency
     risk = _top_risk(nearest)
     hotlines = emergency.hotlines_for(state_name or "")
     checklist = emergency.checklist_for(risk)
 
-    # 7. deterministic explanation (Qwen never blocks the response)
-    fallback_explain = _build_explanation(place, nearest, risk, _next_24h(forecast), warnings, relief)
-    explain = _qwen_explanation(place, {
-        "place": place, "state": state_name, "top_station": nearest[0] if nearest else None,
-        "warnings_count": len(warnings), "forecast": _next_24h(forecast),
-    }, fallback_explain)
-
-    # 8. source / freshness notes
+    # 9. source / freshness notes
     updated_times = [s.get("updated") for s in nearest if s.get("updated")]
     latest_station_update = max(updated_times) if updated_times else None
     jps_fresh = _now().isoformat()
@@ -536,13 +606,13 @@ def _status_data(place: str):
         "met_warnings_all_summary": [{"title_en": w.get("title_en"), "title_bm": w.get("title_bm"), "areas": w.get("areas")} for w in all_warnings],
         "met_forecast": _next_24h(forecast),
         "relief_centres": relief,
+        "news": news_items,
         "emergency": {
             "risk_level": risk,
             "risk_color": RISK_COLOR.get(risk, "gray"),
             "hotlines": hotlines,
             "checklist": checklist,
         },
-        "explanation": explain,
         "sources": [
             {"name": "JPS Malaysia", "url": "https://publicinfobanjir.water.gov.my", "fetched_at": jps_fresh},
             {"name": "MET Malaysia", "url": "https://api.data.gov.my/weather", "fetched_at": _now().isoformat()},
@@ -553,12 +623,47 @@ def _status_data(place: str):
     return response
 
 
+def _explain_data(data):
+    forecast = data.get("met_forecast") or {}
+    top = (data.get("jps") or {}).get("stations", [None])[0]
+    return {
+        "place": data.get("place"),
+        "state": data.get("resolved_state"),
+        "top_station": top,
+        "risk": data.get("emergency", {}).get("risk_level"),
+        "warnings_count": len(data.get("met_warnings", [])),
+        "forecast_en": forecast.get("summary_en"),
+        "forecast_bm": forecast.get("summary_bm"),
+        "relief_count": (data.get("relief_centres") or {}).get("count"),
+    }
+
+
 # ---------------------------------------------------------------------------
 # /api/status
 # ---------------------------------------------------------------------------
 @app.get("/api/status")
 def status(place: str = Query(..., min_length=1, description="Place name in Malaysia")):
-    return JSONResponse(_status_data(place))
+    t0 = time.time()
+    data = _status_core(place, include_news=False)
+    if not data.get("ok"):
+        return JSONResponse(data)
+
+    # Fetch news and Qwen explanation in parallel to keep the function under 60s
+    fallback_explain = _build_explanation(
+        data["place"], data["jps"]["stations"], data["emergency"]["risk_level"],
+        data["met_forecast"], data["met_warnings"], data["relief_centres"]
+    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+        news_future = ex.submit(news.news, data.get("resolved_state") or data.get("place") or place, "banjir")
+        explain_future = ex.submit(_qwen_explanation, data["place"], _explain_data(data), fallback_explain)
+
+    data["news"] = news_future.result()
+    explain = explain_future.result()
+    explain.setdefault("risk_level", data["emergency"]["risk_level"])
+    explain.setdefault("risk_color", data["emergency"]["risk_color"])
+    data["explanation"] = explain
+    data["request_seconds"] = round(time.time() - t0, 2)
+    return JSONResponse(data)
 
 
 # ---------------------------------------------------------------------------
@@ -567,7 +672,7 @@ def status(place: str = Query(..., min_length=1, description="Place name in Mala
 @app.get("/api/pitch")
 def pitch(place: str = Query(..., min_length=1, description="Place name in Malaysia")):
     try:
-        data = _status_data(place)
+        data = _status_core(place, include_news=False)
     except Exception as e:
         data = {"ok": False, "error": str(e)}
 
@@ -578,7 +683,7 @@ def pitch(place: str = Query(..., min_length=1, description="Place name in Malay
                "Dapatkan status banjir terkini dalam Bahasa Malaysia dan English pada bila-bila masa."),
     }
 
-    pitch = _qwen_pitch(place, data, fallback)
+    pitch = _qwen_pitch(place, _status_summary(data), fallback)
     return JSONResponse({
         "ok": data.get("ok", False),
         "place": place,
@@ -586,6 +691,7 @@ def pitch(place: str = Query(..., min_length=1, description="Place name in Malay
         "pitch_bm": pitch.get("bm"),
         "fallback": pitch.get("fallback", True),
         "model": pitch.get("model"),
+        "llm_error": pitch.get("llm_error"),
     })
 
 
