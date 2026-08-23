@@ -175,11 +175,13 @@ def nearest(place, stations=None, limit=10):
         best = 0.0
         for field in (s["district"], s["name"], STATES.get(s["state"], "")):
             f = _norm(field)
-            if q == f or f"{q}" in f.split() or q in f:
+            if not f:
+                continue
+            if q == f or (len(q) >= 4 and (f"{q}" in f.split() or q in f)):
                 best = max(best, 1.0)
             else:
                 best = max(best, difflib.SequenceMatcher(None, q, f).ratio())
-        if best >= 0.6:
+        if best >= 0.84:
             scored.append((best, s))
     scored.sort(key=lambda x: (-x[0], -LEVELS.index(x[1].get("status", "UNKNOWN"))))
     return [s for _, s in scored[:limit]]

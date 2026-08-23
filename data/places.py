@@ -27,6 +27,8 @@ PLACES = {
     "subang jaya": ("SEL", "Petaling"), "subang": ("SEL", "Petaling"), "usj": ("SEL", "Petaling"), "puchong": ("SEL", "Petaling"),
     "damansara": ("SEL", "Petaling"), "kota damansara": ("SEL", "Petaling"), "bandar utama": ("SEL", "Petaling"), "sunway": ("SEL", "Petaling"),
     "seri kembangan": ("SEL", "Petaling"), "sri kembangan": ("SEL", "Petaling"), "ara damansara": ("SEL", "Petaling"),
+    "bukit jelutong": ("SEL", "Petaling"), "setia alam": ("SEL", "Petaling"), "elmina": ("SEL", "Petaling"),
+    "denai alam": ("SEL", "Petaling"), "glenmarie": ("SEL", "Petaling"), "shah alam seksyen": ("SEL", "Petaling"),
     "klang": ("SEL", "Klang"), "port klang": ("SEL", "Klang"), "kapar": ("SEL", "Klang"), "meru": ("SEL", "Klang"),
     "kajang": ("SEL", "Hulu Langat"), "bangi": ("SEL", "Hulu Langat"), "ampang": ("SEL", "Hulu Langat"), "semenyih": ("SEL", "Hulu Langat"),
     "hulu langat": ("SEL", "Hulu Langat"), "cheras selangor": ("SEL", "Hulu Langat"), "balakong": ("SEL", "Hulu Langat"),
