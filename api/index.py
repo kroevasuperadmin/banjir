@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import tempfile
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -20,7 +21,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from data import emergency, jps, met, pps
+from data import emergency, jps, met, places, pps
 
 MYT = timezone(timedelta(hours=8))
 
@@ -55,8 +56,8 @@ def _save_json(path, data):
         pass
 
 
-def _jps_fetch():
-    """Wrap JPS fetch with a disk fallback for the 'JPS site down' edge case."""
+def _jps_fetch_all():
+    """Wrap JPS national fetch with a disk fallback for the 'JPS site down' edge case."""
     try:
         stations = jps.fetch_all()
     except Exception as e:
@@ -77,6 +78,21 @@ def _jps_fetch():
     if cached and time.time() - cached.get("t", 0) < jps.TTL:
         return cached["stations"], cached.get("errors", {}), True
     return [], errors, False
+
+
+def _jps_fetch_state(code):
+    """Fetch one state's stations only. Falls back to the national disk cache if JPS is down."""
+    code = code.upper()
+    try:
+        stations = jps.fetch_state(code)
+        return stations, {}, False
+    except Exception as e:
+        errors = {code: f"{type(e).__name__}: {e}"}
+        cached = _load_json(JPS_CACHE_FILE)
+        if cached and time.time() - cached.get("t", 0) < jps.TTL:
+            state_stations = [s for s in cached["stations"] if s.get("state") == code]
+            return state_stations, errors, True
+        return [], errors, False
 
 
 # ---------------------------------------------------------------------------
@@ -364,9 +380,21 @@ def _status_data(place: str):
     t0 = time.time()
     place = place.strip()
 
-    # 1. parallel fetch JPS (slowest), MET warnings, MET forecast, JKM relief
+    # 1. resolve place: if the gazetteer gives a state, fetch only that state (~1s)
+    resolved = places.resolve(place)
+    if resolved:
+        state_code, district, _ = resolved
+        state_name = jps.STATES.get(state_code, state_code)
+        state_source = "place"
+    else:
+        state_code, state_name, state_source = None, None, None
+
+    # 2. parallel fetch JPS (slowest), MET warnings, MET forecast, JKM relief
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
-        jps_future = ex.submit(_jps_fetch)
+        if resolved:
+            jps_future = ex.submit(_jps_fetch_state, state_code)
+        else:
+            jps_future = ex.submit(_jps_fetch_all)
         warnings_future = ex.submit(met.warnings)
         forecast_future = ex.submit(lambda p: met.forecast(p), place)
         relief_future = ex.submit(_relief, None, place)
@@ -377,9 +405,10 @@ def _status_data(place: str):
     relief = relief_future.result()
 
     nearest = jps.nearest(place, stations, limit=10)
-    state_code, state_name, state_source = _resolve_state(place, nearest)
+    if not resolved:
+        state_code, state_name, state_source = _resolve_state(place, nearest)
 
-    # 2. if unknown place
+    # 3. if unknown place
     if not nearest:
         suggestions = _suggest(place, stations)
         return {
@@ -500,3 +529,24 @@ def pitch(place: str = Query(..., min_length=1, description="Place name in Malay
         "fallback": pitch.get("fallback", True),
         "model": pitch.get("model"),
     })
+
+
+# ---------------------------------------------------------------------------
+# Local cache warmer (skip on Vercel serverless functions)
+# ---------------------------------------------------------------------------
+def _jps_warm():
+    while True:
+        try:
+            _jps_fetch_all()
+        except Exception:
+            pass
+        time.sleep(jps.TTL)
+
+
+_ON_VERCEL = bool(
+    os.environ.get("VERCEL")
+    or os.environ.get("VERCEL_REGION")
+    or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+)
+if not _ON_VERCEL:
+    threading.Thread(target=_jps_warm, daemon=True, name="jps-warmer").start()
