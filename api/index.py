@@ -382,19 +382,35 @@ def _build_explanation(place, stations, risk, forecast, warnings, relief):
 
 
 def _extract_json(text):
-    """Qwen sometimes wraps JSON in markdown fences; extract the inner JSON."""
+    """Qwen sometimes wraps JSON in markdown, adds trailing commas, or extra text.
+
+    Returns {"en": ..., "bm": ...} or None.
+    """
     if not text:
         return None
     m = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.S)
     if m:
         text = m.group(1)
-    text = text.strip()
+    m = re.search(r"\{[\s\S]*?\}", text, re.S)
+    if not m:
+        return None
+    blob = m.group(0)
+    # Qwen occasionally emits a trailing comma before the closing brace
+    blob = re.sub(r",(\s*[}\]])", r"\1", blob)
     try:
-        data = json.loads(text)
+        data = json.loads(blob)
         if "en" in data and "bm" in data:
             return {"en": data.get("en"), "bm": data.get("bm")}
     except Exception:
         pass
+    # Last resort: pull the two quoted values directly
+    en_m = re.search(r'"en"\s*:\s*"((?:\\.|[^"\\])*)"', blob, re.S)
+    bm_m = re.search(r'"bm"\s*:\s*"((?:\\.|[^"\\])*)"', blob, re.S)
+    if en_m and bm_m:
+        return {
+            "en": en_m.group(1).replace('\\"', '"').replace('\\\\', '\\'),
+            "bm": bm_m.group(1).replace('\\"', '"').replace('\\\\', '\\'),
+        }
     return None
 
 
