@@ -410,7 +410,7 @@ function render(data){
   pitch.style.display='block';
 }
 
-form.onsubmit=(ev)=>{ev.preventDefault(); getStatus(place.value||'Gombak');};
+form.onsubmit=(ev)=>{ev.preventDefault(); const q=place.value.trim(); if(!q){ place.focus(); return; } getStatus(q);};
 
 if('webkitSpeechRecognition' in window){
   const rec=new webkitSpeechRecognition(); rec.interimResults=false;
@@ -436,7 +436,8 @@ speakBtn.onclick=()=>{
 };
 
 pitch.querySelector('#speak').onclick=async()=>{
-  const q=place.value||'Gombak';
+  const q=place.value.trim();
+  if(!q){ place.focus(); return; }
   const res=await fetch('/api/pitch?place='+encodeURIComponent(q));
   const d=await res.json();
   lastPitch=d;
@@ -445,7 +446,6 @@ pitch.querySelector('#speak').onclick=async()=>{
 };
 
 setLang(lang);
-getStatus('Gombak');
 </script>
 </body>
 </html>
