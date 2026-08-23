@@ -9,11 +9,12 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 TTL = 300
 TIMEOUT = 10
 
-_FEED_URL = "https://news.google.com/rss/search?q={q}&hl={hl}&gl=MY&ceid=MY:{hl}"
+_FEED_URL = "https://news.google.com/rss/search?q={q}&hl={hl}-MY&gl=MY&ceid=MY:{hl}"
 
 _cache = {}
 
@@ -21,12 +22,10 @@ _cache = {}
 def _parse_date(s):
     if not s:
         return None
-    for fmt in ("%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y %H:%M:%S %z"):
-        try:
-            return datetime.strptime(s, fmt).isoformat()
-        except ValueError:
-            pass
-    return s
+    try:
+        return parsedate_to_datetime(s).isoformat()
+    except Exception:
+        return s
 
 
 def _publisher(item):
@@ -40,7 +39,11 @@ def _publisher(item):
 
 
 def _title(item):
-    return (item.findtext("title") or "").strip()
+    title = (item.findtext("title") or "").strip()
+    publisher = _publisher(item)
+    if publisher and title.endswith(" - " + publisher):
+        title = title[: -len(" - " + publisher)].strip()
+    return title
 
 
 def _link(item):
@@ -92,6 +95,7 @@ def news(state_name, query="banjir"):
             "url": _link(item),
         })
 
+    items.sort(key=lambda x: x.get("published") or "", reverse=True)
     _cache[key] = (time.time(), items)
     return items
 

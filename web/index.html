@@ -72,6 +72,25 @@ function badge(status){
   return `<span class="badge ${cls}">${status||'UNKNOWN'}</span>`;
 }
 
+function timeAgo(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return iso;
+  const diff = Math.max(0, Math.floor((Date.now() - d) / 1000));
+  if(diff < 60) return 'just now';
+  if(diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if(diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  if(diff < 604800) return Math.floor(diff/86400) + 'd ago';
+  return d.toLocaleDateString();
+}
+
+function fmtTime(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  if(isNaN(d)) return '—';
+  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
 function render(data){
   if(data.place_not_found){
     output.innerHTML = `<div class="card"><div class="title">${data.message_en}</div><p class="bm">${data.message_bm}</p>` +
@@ -123,11 +142,10 @@ function render(data){
 
   if(data.news && data.news.length){
     html+=`<div class="card"><div class="title">Latest news</div>`;
-    html+=`<p class="bm">News reports &mdash; not an official warning.</p>`;
+    html+=`<div class="muted" style="margin-bottom:.5rem">News reports &mdash; not an official warning</div>`;
     for(const n of data.news.slice(0,5)){
-      const when = n.published ? new Date(n.published).toLocaleString() : '';
-      html+=`<div class="station"><a href="${n.url}" target="_blank">${n.title}</a><br>`;
-      html+=`<small class="muted">${n.publisher} &middot; ${when}</small></div>`;
+      html+=`<div class="station"><small class="muted">${n.publisher} &middot; ${timeAgo(n.published)}</small><br>`;
+      html+=`<a href="${n.url}" target="_blank">${n.title}</a></div>`;
     }
     html+=`<div class="muted">Source: Google News RSS</div></div>`;
   }
@@ -156,13 +174,11 @@ function render(data){
   html+='</div>';
 
   html+=`<div class="card"><div class="title">Data sources & updates</div>`;
-  html+=`<div class="muted">JPS Malaysia (publicinfobanjir.water.gov.my): river levels, thresholds, rainfall`;
-  if(data.jps.latest_station_update) html+=` · updated ${data.jps.latest_station_update}`;
-  html+=`</div>`;
-  html+=`<div class="muted">MET Malaysia via data.gov.my: warnings + forecast · updated ${data.met_forecast ? data.met_forecast.generated_at||'' : 'varies'}</div>`;
-  html+=`<div class="muted">JKM InfoBencana: relief centres + evacuees · updated ${data.relief_centres.fetched_at||''}</div>`;
-  html+=`<div class="muted">NADMA/Bomba/JKM: hotlines + checklist</div>`;
-  html+=`<div class="muted">Google News RSS: news reports</div>`;
+  html+=`<div class="muted">JPS Malaysia &mdash; Jabatan Pengairan dan Saliran (publicinfobanjir.water.gov.my): river levels, thresholds, rainfall &middot; updated ${fmtTime(data.jps.latest_station_update)}</div>`;
+  html+=`<div class="muted">MET Malaysia &mdash; Jabatan Meteorologi via data.gov.my: warnings + forecast &middot; updated ${data.met_forecast ? fmtTime(data.met_forecast.fetched_at) : '—'}</div>`;
+  html+=`<div class="muted">JKM &mdash; Jabatan Kebajikan Masyarakat InfoBencana: relief centres + evacuees &middot; updated ${fmtTime(data.relief_centres.fetched_at)}</div>`;
+  html+=`<div class="muted">NADMA/Bomba/JKM: hotlines + checklist &middot; updated ${fmtTime(data.generated_at)}</div>`;
+  html+=`<div class="muted">Google News RSS: news &middot; updated ${data.news && data.news[0] ? fmtTime(data.news[0].published) : '—'}</div>`;
   html+=`<p class="bm">Nearest station is matched by district name, not GPS. 'No data' is never shown as 'safe'.</p>`;
   html+=`</div>`;
 

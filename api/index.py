@@ -282,6 +282,7 @@ def _next_24h(forecast):
         "match_score": forecast.get("match_score"),
         "periods": periods,
         "source": "MET Malaysia via data.gov.my",
+        "fetched_at": _now().isoformat(),
     }
 
 
