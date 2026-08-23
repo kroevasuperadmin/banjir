@@ -1,48 +1,47 @@
-# Paste this into Devin (Web/CLI) at 9:30. Edit [BRACKETS] to match the morning brief first.
+# BANJIR — build spec for Devin
 
-Build **Kira** in this repo: a Malaysian e-invoice helper for micro-traders AND the citizens who need valid receipts for tax relief. Keep it small: ONE happy path, no auth, no database.
+You are building **Banjir**, a Malaysian flood-awareness agent, at a one-day hackathon (#BuildForMsia). Submission is at 16:00 today. Optimise for: a WORKING LIVE URL, real data, graceful edge cases, and a demo that never stalls. Minimal code, minimal dependencies, commit after every working step.
 
-## JUDGING RUBRIC (50 pts) — build to this, nothing else
-1. Prototype completeness /10 — a WORKING LIVE URL (deploy to Vercel) with a reliable end-to-end flow that handles 3 basic edge cases on stage.
-2. Problem fit /10 — real PUBLIC problem, defined target users, 2-3 sourced numbers in README.
-3. Solution quality & viability /10 — clear value + realistic adoption next steps (named pilot users in README).
-4. Novelty & impact /10 — wow factor vs existing options + practical way to reach users.
-5. Pitch clarity /10 — smooth demo; up to 2 pts for an AGENT-LED presentation → build a "Let Kira pitch" button (Qwen narrates a 30-second pitch on the live page).
-The three tools (Hermes, Qwen, Devin) are an ELIGIBILITY GATE, not points. Use them, document them, don't over-engineer them.
+## What it does (one happy path)
+A person types or says where they are — "Gombak", "Kg. Baru Kuala Lumpur", "Kota Bharu" — and gets, in Bahasa Malaysia + English:
+1. **Risk now**: the nearest JPS river stations, their current level vs the Alert/Warning/Danger thresholds, trend, and the timestamp (LIVE, scraped from JPS publicinfobanjir — see `data/jps.py`).
+2. **Official warnings**: active MET Malaysia warnings that mention their state/area (LIVE — `data/met.py`).
+3. **Next 24h**: MET forecast for the nearest location (LIVE — `data/met.py`).
+4. **What to do**: a short checklist matched to the risk level + official hotlines (`data/EMERGENCY.md`; relief-centre data via `data/pps.py` if available, otherwise an honest "not available" line with the official link).
+5. Every number carries its source + timestamp. Never invent. If a feed is down, say so in the UI.
 
-## SHAPE
-- `web/` — one-page Next.js app on Vercel: textarea "paste your WhatsApp order / receipt" → button → shows (a) the e-invoice JSON, (b) a clean bilingual CUSTOMER RECEIPT card (the hero), (c) missing-fields checklist in BM/EN. Plus the "Let Kira pitch" button. Mobile-first, judges will open it on phones.
-- `agent/` — the same logic exposed as Hermes tools so the Telegram bot does the identical flow for traders.
-- 3 edge cases handled gracefully with a friendly BM/EN message: missing TIN → uses "General Public" fallback and says so; non-MYR currency → refuses with explanation; garbage input → asks for the order text again. Put these 3 in `samples/` and in DEMO.md so I can trigger them live.
+## The judging rubric (50 pts) — build to this
+1. Prototype completeness /10 — live URL on Vercel, end-to-end, handles 3 edge cases on stage: (a) unknown place → ask again + suggest nearby districts; (b) station offline / '-' values → shown as "no reading", not 0; (c) JPS site down → cached last-good data with a visible "last updated X min ago" badge.
+2. Problem fit /10 — real public problem with evidence (`EVIDENCE.md` → put 3 stats in the README).
+3. Solution quality & viability /10 — clear value + realistic next steps (see README skeleton).
+4. Novelty & impact /10 — nobody else has live JPS thresholds per station in plain BM; the "Let Banjir explain" agent voice.
+5. Pitch clarity /10 — smooth demo; +2 pts for an AGENT-LED presentation → a "Let Banjir pitch" button on the page where the agent narrates a 30-second pitch using today's real readings.
 
-## STEP 0 — SMOKE TEST FIRST (30 minutes, before anything else)
-Before building any feature: get ONE canned input (`samples/01_warung.txt`) running end-to-end through Hermes with Qwen as the model (send it via Telegram, get the JSON back) and printing a JSON result. Commit it as `smoke: first end-to-end run`. Then STOP and print the exact command + its output — I paste that at the top of README. Only after that passes do you continue with the rest of this brief. A polished agent that doesn't run scores zero; a crude one that runs makes finalist.
+## Stack (eligibility gate — all must be present and documented)
+- **Devin** (you) builds it. Commit messages prefixed `devin:`.
+- **Hermes Agent** = the agent runtime. Telegram bot via Hermes; tools defined per `HERMES_SETUP.md`. The Hermes tool `flood_status(place)` calls our own HTTP API (`/api/status?place=`). Web page and Telegram share the same API.
+- **Qwen** = the LLM that turns structured readings into the BM/EN explanation + the narrated pitch. OpenAI-compatible endpoint from env `QWEN_BASE_URL` / `QWEN_API_KEY` / `QWEN_MODEL` (e.g. `qwen3.8-max`). If the key is missing, fall back to a deterministic template so the demo never dies.
 
-## SCOPE LIMIT — e-invoice compliance is too big for one day
-Do NOT attempt full LHDN MyInvois compliance. Validate a FIXED subset of required fields only: supplier TIN, buyer TIN (or "General Public" 000000000000000 fallback), MSIC code (5-digit, looked up via PasarAPI), classification code, invoice date/time, currency MYR, line items with unit price + qty + SST. Put that list in `README.md → Assumptions & limits` verbatim and in `validate.py` as a single `REQUIRED_FIELDS` constant. Ship `samples/schema_subset.json` as the schema. State clearly that it's a subset.
+## Shape — keep it this small
+```
+data/jps.py        # live JPS scraper (exists) – do not rewrite, fix only if broken
+data/met.py        # MET warnings + forecast (exists)
+data/pps.py        # relief centres (exists; may return available:false)
+data/EMERGENCY.md  # hotlines + checklist (exists)
+api/               # Python (FastAPI or stdlib http.server) → GET /api/status?place=..., GET /api/pitch
+web/               # ONE page (Next.js or plain HTML+JS) deployed on Vercel: input box → status cards → checklist → "Let Banjir pitch" button. Mobile-first; judges open it on phones.
+hermes/            # tool definition + SKILL/instructions for the Telegram agent (see HERMES_SETUP.md)
+samples/           # 3 canned places incl. the 3 edge cases
+README.md          # fill the skeleton; keep the "Verify it runs (10 seconds)" block at the top
+DEMO.md            # exact steps for the live demo + the 3 edge cases
+```
+Deployment: Vercel. If Python on Vercel is awkward, put the API in Next.js API routes and port the three data modules to TypeScript — but ONLY if the Python route fails; do not rewrite working code for style.
 
-## What it does
-[A Malaysian micro-SME owner pastes a WhatsApp order / receipt text (or a photo path). The agent extracts buyer, items, amounts, SST, and produces an LHDN MyInvois-compliant e-invoice JSON, validates required fields (TIN, MSIC code, classification codes, currency MYR), and prints a plain-English + Bahasa Malaysia list of anything missing.]
-
-## Hard constraints — the hackathon judge checks ALL THREE are used meaningfully at RUNTIME
-1. **Hermes Agent** (the OpenClaw-family runtime the organisers mandated in their setup workshop; treat 'OpenClaw' in the rules as satisfied by Hermes unless they say otherwise) is the agent runtime. The agent runs INSIDE Hermes: Qwen is its model (custom OpenAI-compatible endpoint), our Python tools are registered as Hermes tools/skills, Telegram is the channel (BotFather bot already paired). Do not reimplement an agent loop in Python — Hermes IS the loop. Keep `./openclaw.json` only as a fallback if the organisers insist on OpenClaw proper.
-2. **Qwen 3.8** is the model, served from ModelScope (modelscope.ai) as an OpenAI-compatible endpoint. Model ID = the full `Qwen-Ambassador/Qwen3.8-Max`-style ID from the organisers; base URL + key from env `QWEN_BASE_URL` / `QWEN_API_KEY`. Hermes uses it as the brain; any direct Python LLM call uses the same endpoint. Nothing goes through OpenAI/Anthropic.
-3. **Devin** builds this repo (you). Commit often with clear messages; I'll link the session in README. Do NOT build any runtime Devin integration — no points for it.
-4. **Malaysian data** via PasarAPI remote MCP server `https://pasarapi.xyz/mcp` (no auth) — already in `openclaw.json`. Use it to look up [MSIC codes / company registry / relevant gov dataset]. Also expose `tools/pasar_lookup.py` as a fallback using `GET https://pasarapi.xyz/api/search?q=...`.
-
-## Deliverables
-- `openclaw.json` finalized (keep the structure already there)
-- `skills/[kira]/SKILL.md` — the agent's instructions (system prompt, output JSON schema, BM/EN tone)
-- `tools/` — `extract.py`, `validate.py`, `pasar_lookup.py`
-- `samples/` — 3 realistic Malaysian inputs (warung order, clinic receipt, online-shop order) + expected outputs
-- `run_demo.sh` / `run_demo.ps1` — one command that runs sample 1 end to end locally; PLUS the Vercel URL printed in README
-- `README.md → Problem fit` — 2-3 numbers with source links (MyInvois phase dates + thresholds; number of Malaysian micro-SMEs; tax-relief categories that require receipts)
-- `DEMO.md` — exact commands + expected output, step by step
-- `README.md` — fill the existing skeleton. Headers must stay exactly: Problem Validity / Stack Integration / Functionality / Sustainability.
-- Tests: `pytest` covering validate.py on the 3 samples
+## Step 0 — smoke test first (30 min)
+`GET /api/status?place=Gombak` returns real JPS stations with today's timestamp + MET data, and the web page renders it. Commit `devin: smoke test green`. Print the curl command + output — it goes at the top of README. Only then add Qwen explanation, the pitch button, Telegram, edge cases.
 
 ## Rules
-- Windows + macOS must both work (the builder is on Windows). Use pathlib, no bash-only tricks in Python.
-- Every external call has a 10s timeout and a clear error message.
-- Commit after each working step with clear messages. Do not ask me questions — make reasonable choices and list assumptions at the end.
-- When done, print: the exact commands to run the demo, and the list of env vars needed.
+- Windows + macOS both work. 10s timeouts on every external call. Cache JPS/MET for 5 min.
+- Cite the publisher on every card: "Source: JPS Malaysia (publicinfobanjir) · updated 09:25".
+- Do not ask questions; choose, and list assumptions at the end.
+- When done print: Vercel URL, the curl smoke test, env vars needed, and the list of files.
