@@ -1,5 +1,7 @@
 # Devin x Claw Collective x Qwen Hackathon — 23 Aug 2026 — BATTLE PLAN
 
+> ⚠️ 10:15 UPDATE: Kira is DEAD (sub-RM1M businesses exempt from e-invoicing since 1 Jan 2026; getkira.io already exists). Pivot = CIKGU (teacher assistant). Rules page: Devin + Hermes/OpenClaw MUST be used; Qwen only ENCOURAGED. Devin Pro voucher: DCCQ-KWBZ9GQ5 (Devin → Plans & Billing → Devin Pro 1 month). Submission = form by 16:00: group name, Discord handle, 150-word problem (with stats), 150-word solution, 1-min public YouTube demo, live URL (Vercel), public GitHub repo with group name in title. Final = 5-min pitch + 3-min Q&A at 17:00.
+
 Check-in 8:45 · Workshops 9:00 · Sprint 9:30–4:00 (HARD) · AI prelim judging 5:00 → 6 finalists · Live demos → 3 winners 6:00
 Criteria (no weights): Problem validity · Stack integration (ALL THREE) · Functionality (runs live) · Sustainability (would users adopt)
 
