@@ -203,25 +203,70 @@ def _attach_trend(stations, state_code):
 # ---------------------------------------------------------------------------
 # Warnings, forecast, relief, emergency
 # ---------------------------------------------------------------------------
+# Keywords a MET warning must mention to be shown for a state
+STATE_KEYWORDS = {
+    "perlis": ["perlis", "kedah & perlis", "semenanjung", "peninsular", "peninsula"],
+    "kedah": ["kedah", "perlis & kedah", "penang & kedah", "semenanjung", "peninsular", "peninsula"],
+    "pulau pinang": ["pulau pinang", "penang", "perlis & kedah", "semenanjung", "peninsular", "peninsula"],
+    "perak": ["perak", "penang & perak", "semenanjung", "peninsular", "peninsula"],
+    "selangor": ["selangor", "kuala lumpur", "wp kuala lumpur", "negeri sembilan", "semenanjung", "peninsular", "peninsula"],
+    "wp kuala lumpur": ["kuala lumpur", "wp kuala lumpur", "wilayah persekutuan", "selangor", "semenanjung", "peninsular", "peninsula"],
+    "wp putrajaya": ["putrajaya", "wilayah persekutuan", "selangor", "semenanjung", "peninsular", "peninsula"],
+    "negeri sembilan": ["negeri sembilan", "selangor", "melaka", "semenanjung", "peninsular", "peninsula"],
+    "melaka": ["melaka", "malacca", "negeri sembilan", "johor", "semenanjung", "peninsular", "peninsula"],
+    "johor": ["johor", "pahang", "semenanjung", "peninsular", "peninsula"],
+    "pahang": ["pahang", "perak", "selangor", "johor", "terengganu", "semenanjung", "peninsular", "peninsula"],
+    "terengganu": ["terengganu", "kelantan", "pahang", "semenanjung", "peninsular", "peninsula"],
+    "kelantan": ["kelantan", "terengganu", "semenanjung", "peninsular", "peninsula"],
+    "sarawak": ["sarawak", "borneo", "east malaysia"],
+    "sabah": ["sabah", "borneo", "east malaysia"],
+    "wp labuan": ["labuan", "sabah", "borneo", "east malaysia"],
+}
+
+
+def _warning_matches_state(w, state_name, place):
+    """True if the warning's text/areas mention this state, its neighbours, or Peninsular Malaysia."""
+    if not state_name:
+        return True
+    state_clean = state_name.lower().replace("wp ", "")
+    keywords = STATE_KEYWORDS.get(state_clean, [state_clean])
+    text = " ".join([w.get("title_en") or "", w.get("title_bm") or "",
+                     w.get("text_en") or "", w.get("text_bm") or ""]).lower()
+    all_text = text + " " + " ".join(a.lower() for a in w.get("areas", []))
+    return any(k in all_text for k in keywords)
+
+
 def _filter_warnings(warnings, state_name, place):
-    """Return MET warnings that mention the resolved state/area."""
+    """Return only MET warnings that mention the resolved state/area."""
     if not state_name:
         return warnings[:5]
-    state_key = state_name.lower()
-    matched = []
-    for w in warnings:
-        text = " ".join([w.get("title_en") or "", w.get("title_bm") or "",
-                         w.get("text_en") or "", w.get("text_bm") or ""]).lower()
-        areas = [a.lower() for a in w.get("areas", [])]
-        if state_key in text or any(state_key in a for a in areas):
-            matched.append(w)
-    return matched if matched else warnings[:5]
+    return [w for w in warnings if _warning_matches_state(w, state_name, place)][:5]
+
+
+_PERIOD_BM = {"morning": "Pagi", "afternoon": "Petang", "night": "Malam"}
 
 
 def _next_24h(forecast):
     if not forecast or not forecast.get("days"):
         return None
     today = forecast["days"][0]
+    tomorrow = forecast["days"][1] if len(forecast["days"]) > 1 else None
+    periods = []
+    for label in ("morning", "afternoon", "night"):
+        periods.append({
+            "when_en": label.capitalize(),
+            "when_bm": _PERIOD_BM[label],
+            "summary_bm": today.get(label, ""),
+            "summary_en": met.FORECAST_EN.get((today.get(label) or "").lower(), today.get(label, "")),
+        })
+    if tomorrow:
+        for label in ("morning", "afternoon", "night"):
+            periods.append({
+                "when_en": f"Tomorrow {label.capitalize()}",
+                "when_bm": f"{_PERIOD_BM[label]} esok",
+                "summary_bm": tomorrow.get(label, ""),
+                "summary_en": met.FORECAST_EN.get((tomorrow.get(label) or "").lower(), tomorrow.get(label, "")),
+            })
     return {
         "date": today["date"],
         "summary_bm": today["summary"],
@@ -232,12 +277,13 @@ def _next_24h(forecast):
         "max_temp": today["max_temp"],
         "location": forecast.get("location_name"),
         "match_score": forecast.get("match_score"),
+        "periods": periods,
         "source": "MET Malaysia via data.gov.my",
     }
 
 
 def _relief(state_name, place):
-    """Return relief centres for the state, honest fallback if JKM is down."""
+    """Return relief centres for the state, plus a national summary when the state has none open."""
     d = pps.open_pps(state_name.lower() if state_name else None)
     if not d.get("available"):
         return {
@@ -247,9 +293,17 @@ def _relief(state_name, place):
             "source": "JKM InfoBencana",
         }
     centres = d.get("centres", [])
-    # prefer flood-specific, then any
     flood = [c for c in centres if "banjir" in (c.get("disaster") or "").lower()]
     top = (flood or centres)[:3]
+    national = None
+    if not top:
+        nd = pps.open_pps()
+        if nd.get("available"):
+            national = {
+                "count": nd.get("count", 0),
+                "states": sorted({c["state"] for c in nd["centres"] if c.get("state")})[:5],
+                "disaster_types": sorted({c["disaster"] for c in nd["centres"] if c.get("disaster")})[:3],
+            }
     return {
         "available": True,
         "count": d.get("count"),
@@ -259,6 +313,7 @@ def _relief(state_name, place):
         "source": d.get("source"),
         "dashboard_url": d.get("dashboard_url"),
         "centres": top,
+        "national": national,
     }
 
 
@@ -319,7 +374,7 @@ def _build_explanation(place, stations, risk, forecast, warnings, relief):
         en = (f"The nearest station to {place}, {top['name']}, has no current reading or thresholds. "
               f"Trend: {trend}. 24h forecast: {forecast_en}.")
 
-    return {"bm": bm, "en": en, "risk_level": status, "risk_color": RISK_COLOR.get(status, "gray")}
+    return {"en": en, "bm": bm, "risk_level": status, "risk_color": RISK_COLOR.get(status, "gray")}
 
 
 def _qwen_call(prompt, fallback_dict):
@@ -347,10 +402,10 @@ def _qwen_call(prompt, fallback_dict):
         try:
             data = json.loads(text)
             if "bm" in data and "en" in data:
-                return dict(data, fallback=False, model=model)
+                return {"en": data.get("en"), "bm": data.get("bm"), "fallback": False, "model": model}
         except Exception:
             pass
-        return {"bm": text, "en": text, "fallback": False, "model": model}
+        return {"en": text, "bm": text, "fallback": False, "model": model}
     except Exception as e:
         return dict(fallback_dict, fallback=True, model=model, error=str(e))
 
@@ -358,8 +413,8 @@ def _qwen_call(prompt, fallback_dict):
 def _qwen_explanation(place, data, fallback):
     prompt = (
         "You are Banjir, a calm Malaysian flood-awareness agent. "
-        "Write a 2-sentence update in Bahasa Malaysia and a 2-sentence update in English. "
-        "Return only JSON with keys 'bm' and 'en'.\n\nData:\n" + json.dumps(data, ensure_ascii=False)
+        "Write a 2-sentence update in English and a 2-sentence update in Bahasa Malaysia. "
+        "Return only JSON with keys 'en' and 'bm'.\n\nData:\n" + json.dumps(data, ensure_ascii=False)
     )
     return _qwen_call(prompt, fallback)
 
@@ -367,8 +422,8 @@ def _qwen_explanation(place, data, fallback):
 def _qwen_pitch(place, data, fallback):
     prompt = (
         "You are Banjir, pitching a 30-second Malaysian flood-awareness agent demo. "
-        "Use the live data below and deliver it confidently in Bahasa Malaysia and English. "
-        "Return only JSON with keys 'bm' and 'en'.\n\nData:\n" + json.dumps(data, ensure_ascii=False)
+        "Use the live data below and deliver it confidently in English and Bahasa Malaysia. "
+        "Return only JSON with keys 'en' and 'bm'.\n\nData:\n" + json.dumps(data, ensure_ascii=False)
     )
     return _qwen_call(prompt, fallback)
 
@@ -416,8 +471,8 @@ def _status_data(place: str):
             "place": place,
             "place_not_found": True,
             "suggestions": suggestions,
-            "message_bm": f"Kami tidak jumpa '{place}'. Cuba kawasan berikut:",
             "message_en": f"We couldn't find '{place}'. Try one of these nearby areas:",
+            "message_bm": f"Kami tidak jumpa '{place}'. Cuba kawasan berikut:",
             "generated_at": _now().isoformat(),
             "sources": [{
                 "name": "JPS Malaysia",
@@ -437,7 +492,8 @@ def _status_data(place: str):
                 if forecast:
                     break
 
-    # 5. filter warnings + relief by resolved state
+    # 5. filter warnings + relief by resolved state; keep national warnings for the UI
+    all_warnings = warnings
     warnings = _filter_warnings(warnings, state_name, place)
     relief = _relief(state_name, place)
 
@@ -476,6 +532,8 @@ def _status_data(place: str):
             "stations": nearest,
         },
         "met_warnings": warnings[:5],
+        "met_warnings_all_count": len(all_warnings),
+        "met_warnings_all_summary": [{"title_en": w.get("title_en"), "title_bm": w.get("title_bm"), "areas": w.get("areas")} for w in all_warnings],
         "met_forecast": _next_24h(forecast),
         "relief_centres": relief,
         "emergency": {
@@ -514,18 +572,18 @@ def pitch(place: str = Query(..., min_length=1, description="Place name in Malay
         data = {"ok": False, "error": str(e)}
 
     fallback = {
-        "bm": (f"Ini Banjir. Baru sahaja saya semak data sungai, amaran MET, ramalan, dan pusat pemindahan untuk {place}. "
-               "Dapatkan status banjir terkini dalam Bahasa Malaysia dan English pada bila-bila masa."),
         "en": (f"This is Banjir. I just checked river levels, MET warnings, the forecast, and relief centres for {place}. "
                "Get live flood status in Bahasa Malaysia and English, anytime."),
+        "bm": (f"Ini Banjir. Baru sahaja saya semak data sungai, amaran MET, ramalan, dan pusat pemindahan untuk {place}. "
+               "Dapatkan status banjir terkini dalam Bahasa Malaysia dan English pada bila-bila masa."),
     }
 
     pitch = _qwen_pitch(place, data, fallback)
     return JSONResponse({
         "ok": data.get("ok", False),
         "place": place,
-        "pitch_bm": pitch.get("bm"),
         "pitch_en": pitch.get("en"),
+        "pitch_bm": pitch.get("bm"),
         "fallback": pitch.get("fallback", True),
         "model": pitch.get("model"),
     })

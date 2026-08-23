@@ -1,2 +1,8 @@
 Atlantis Malaysia
-Edge case: unknown place. API should suggest nearby districts and ask again.
+
+Edge case: unknown place. API should return HTTP 200 with place_not_found=true and 8 district suggestions.
+
+Test:
+  curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8000/api/status?place=Atlantis"
+
+Expected: 200
