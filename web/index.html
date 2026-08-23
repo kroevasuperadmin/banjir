@@ -18,6 +18,11 @@
   .muted{color:#6b7280;font-size:.875rem}
   .badge{display:inline-block;padding:.25rem .5rem;border-radius:.375rem;font-size:.75rem;font-weight:700}
   .bg-red{background:#fee2e2;color:#991b1b}
+  .watch-banner{background:#fee2e2;border:2px solid #dc2626;color:#7f1d1d;padding:.75rem 1rem;border-radius:.5rem;margin-bottom:1rem;font-weight:700;animation:watchPulse 1.2s ease-in-out 2}
+  @keyframes watchPulse{0%,100%{opacity:1}50%{opacity:.55}}
+  .watch-indicator{font-size:.75rem;color:#6b7280;margin:.25rem 0 .75rem}
+  .watch-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-right:.35rem;animation:watchBlink 2s ease-in-out infinite}
+  @keyframes watchBlink{0%,100%{opacity:1}50%{opacity:.3}}
   .bg-orange{background:#ffedd5;color:#9a3412}
   .bg-amber{background:#fef3c7;color:#92400e}
   .bg-green{background:#d1fae5;color:#065f46}
@@ -225,6 +230,10 @@ const RECOG = {en:'en-MY', bm:'ms-MY', zh:'zh-CN'};
 let lang = localStorage.getItem('banjir-lang') || 'en';
 let lastData = null;
 let lastPitch = null;
+let watchTimer = null;
+let watchStatuses = {};
+let watchPlace = null;
+let watchBanners = [];
 
 const form = document.getElementById('form');
 const place = document.getElementById('place');
@@ -271,14 +280,63 @@ function setLang(l){
 
 langBtns.forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
 
-async function getStatus(q){
-  loading.style.display='block'; output.innerHTML=''; pitch.style.display='none';
+async function getStatus(q, isWatchCheck){
+  if(!isWatchCheck){ loading.style.display='block'; output.innerHTML=''; pitch.style.display='none'; watchBanners=[]; }
   try{
     const res = await fetch('/api/status?place='+encodeURIComponent(q));
     const data = await res.json();
-    lastData = data;
-    render(data);
-  }finally{ loading.style.display='none'; }
+    if(!isWatchCheck){
+      lastData = data;
+      render(data);
+      if(!data.place_not_found) startWatch(q);
+    } else {
+      checkWatchEscalation(data);
+    }
+  }finally{ if(!isWatchCheck) loading.style.display='none'; }
+}
+
+const WATCH_INTERVAL_MS = 20000;
+const WATCH_LABEL = {en:'Watching this area live — Banjir checks every 20s',
+                      bm:'Memantau kawasan ini secara langsung — Banjir semak setiap 20 saat',
+                      zh:'正在实时监测此区域 — Banjir 每20秒检查一次'};
+const WATCH_ESCALATED = {en:'just crossed', bm:'baru melepasi paras', zh:'刚超过'};
+
+function startWatch(q){
+  if(watchTimer) clearInterval(watchTimer);
+  watchPlace = q;
+  watchStatuses = {};
+  const stations = (lastData && lastData.jps && (lastData.jps.nearest || lastData.jps.stations)) || [];
+  stations.forEach(s=>{ const id=s.station_id||s.id||s.name; if(id) watchStatuses[id]=s.status; });
+  watchTimer = setInterval(()=>{ if(watchPlace) getStatus(watchPlace, true); }, WATCH_INTERVAL_MS);
+  renderWatchIndicator();
+}
+
+const STATUS_RANK = {NORMAL:0, ALERT:1, WARNING:2, DANGER:3, OFFLINE:-1, UNKNOWN:-1};
+
+function checkWatchEscalation(data){
+  const stations = (data.jps && (data.jps.nearest || data.jps.stations)) || [];
+  let changed = false;
+  stations.forEach(s=>{
+    const id = s.station_id||s.id||s.name; if(!id) return;
+    const prev = watchStatuses[id];
+    if(prev !== undefined && prev !== s.status && (STATUS_RANK[s.status]||-1) > (STATUS_RANK[prev]||-1)){
+      const label = WATCH_ESCALATED[lang]||WATCH_ESCALATED.en;
+      watchBanners.unshift(`⚠️ ${escapeHtml(s.name)} ${label} ${statusLabel(s.status)} — ${s.level} m`);
+      changed = true;
+    }
+    watchStatuses[id] = s.status;
+  });
+  if(changed){ lastData = data; render(data); }
+  renderWatchIndicator();
+}
+
+function renderWatchIndicator(){
+  const old = document.getElementById('watchIndicator'); if(old) old.remove();
+  if(!watchPlace) return;
+  const div = document.createElement('div');
+  div.id = 'watchIndicator'; div.className = 'watch-indicator';
+  div.innerHTML = `<span class="watch-dot"></span>${escapeHtml(WATCH_LABEL[lang]||WATCH_LABEL.en)}`;
+  output.parentNode.insertBefore(div, output);
 }
 
 function badge(status){
@@ -317,7 +375,11 @@ function render(data){
     return;
   }
   const e=data.explanation||{};
-  let html=`<div class="card"><div class="title">${summaryText(e)}</div>`;
+  let html='';
+  if(watchBanners.length){
+    html += watchBanners.map(b=>`<div class="watch-banner">${b}</div>`).join('');
+  }
+  html+=`<div class="card"><div class="title">${summaryText(e)}</div>`;
   html+=`<div class="muted">${t('risk')}: ${badge(data.emergency.risk_level)} · ${t('state')}: ${escapeHtml(data.resolved_state||'-')}`;
   if(e.fallback===false) html+=` · Model: ${escapeHtml(e.model)}`;
   if(e.fallback===true) html+=` · <span class="bg-amber badge">${t('templateFallback')}</span> ${escapeHtml(e.model||'')}`;
