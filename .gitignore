@@ -4,3 +4,5 @@ __pycache__/
 node_modules/
 .venv/
 data/.met_cache.json
+devin-session.json
+devin-run.log
