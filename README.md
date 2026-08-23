@@ -4,6 +4,17 @@
 
 **Demo:** `demo/demo.gif` (45 sec)  ·  **Run it:** see [DEMO.md](DEMO.md)  ·  **Team:** Faris Irfan [+ names]
 
+## Verify it runs (10 seconds)
+```bash
+export QWEN_API_KEY=...   # Windows: $env:QWEN_API_KEY="..."
+./run_demo.sh             # Windows: .\run_demo.ps1
+```
+Expected output (sample 1, warung order → e-invoice JSON):
+```
+[paste the real smoke-test output here — first thing after it passes at ~10:00]
+```
+Model: `qwen/[id]` · Runtime: OpenClaw `openclaw.json` · Data: PasarAPI MCP · Devin session: [link]
+
 ## Problem Validity
 [2–4 sentences. Who in Malaysia, what breaks today, why now. One real number with a source link.]
 - Who: [micro-SMEs / clinics / schools — be specific]
@@ -27,7 +38,15 @@ Malaysian data source: PasarAPI (Malaysian/SEA open-data catalogue) via MCP — 
 - Live demo recorded: `demo/demo.gif`.
 
 ## Sustainability
-- **Real pilot users, not hypothetical:** [PulseLink (Malaysian SME network) / Helm AI's ~20 B2B clients — clinics, schools]. Pilot starts [date].
+- **Real pilot users, not hypothetical** (we sell to Malaysian SMEs for a living — these are existing customers/partners):
+
+| Pilot partner | What they are | Businesses reachable | Input they'd feed Kira | Start |
+|---|---|---|---|---|
+| PulseLink | Malaysian SME network (existing Rizqey client) | [N] SMEs | WhatsApp orders, POS receipts | Mon 24 Aug |
+| Helm AI | B2B platform for service orgs (partner) | ~20 orgs — dental clinics, schools, hospitals | Clinic/school receipts | Week of 24 Aug |
+| [3rd, if any] | | | | |
+
+- Target after pilot: [e.g. 100 micro-SMEs in 30 days via the two channels above]. Micro-SMEs are the segment hit by the 2026 MyInvois phase with the least tooling.
 - Path to adoption: [how it reaches users — WhatsApp / existing platform / Helm module]
 - Cost to run: Qwen per call ≈ [x]; zero-auth public data. Works for a 1-person warung.
 - What's next (1 week): [3 bullets]

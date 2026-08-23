@@ -36,8 +36,9 @@ Record the demo video at 2:45 when it works. Live demos die; the GIF in the repo
 
 ## TIMELINE
 09:00 Workshops — get the 3 API keys + the official Qwen 3.8 model ID + how they want submissions. Ask: "what does the judging agent read — repo URL? form?"
-09:30 `git clone` this scaffold → Devin: paste DEVIN_PROMPT.md (edited to the brief). Devin builds for 60–90 min while you set OpenClaw + Qwen key + PasarAPI MCP.
-11:00 First end-to-end run. Fix with Devin (paste errors), Claude Code for config.
+09:30 `git clone` this scaffold → Devin: paste DEVIN_PROMPT.md (edited to the brief). **Devin's FIRST job is a 30-min scaffold + SMOKE TEST**: one canned order (`samples/01_warung.txt`) runs end-to-end through OpenClaw+Qwen and prints JSON. Nothing else until that passes.
+10:00 SMOKE TEST GREEN = the real start. Paste its command + output at the TOP of README (the judge verifies "it runs" in 10 seconds). Only now let Devin add validation, PasarAPI, Devin-tool, BM output.
+11:00 Second end-to-end run with the full path. Fix with Devin (paste errors), Claude Code for config.
 13:00 Lunch — talk to organisers (Hoh Jia Da, shuenrui, Xavier Loo). Be memorable before judging.
 14:30 FREEZE. Polish README to the 4 criteria. Record GIF. DEMO.md.
 15:30 Submit. Then rehearse the 2-min pitch 5x.

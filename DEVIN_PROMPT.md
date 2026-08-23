@@ -2,6 +2,12 @@
 
 Build a working CLI agent project called **[Kira]** in this repo. Python 3.11. Keep it small: ONE happy path, no auth, no database, no web UI.
 
+## STEP 0 — SMOKE TEST FIRST (30 minutes, before anything else)
+Before building any feature: get ONE canned input (`samples/01_warung.txt`) running end-to-end through OpenClaw with Qwen as the model and printing a JSON result. Commit it as `smoke: first end-to-end run`. Then STOP and print the exact command + its output — I paste that at the top of README. Only after that passes do you continue with the rest of this brief. A polished agent that doesn't run scores zero; a crude one that runs makes finalist.
+
+## SCOPE LIMIT — e-invoice compliance is too big for one day
+Do NOT attempt full LHDN MyInvois compliance. Validate a FIXED subset of required fields only: supplier TIN, buyer TIN (or "General Public" 000000000000000 fallback), MSIC code (5-digit, looked up via PasarAPI), classification code, invoice date/time, currency MYR, line items with unit price + qty + SST. Put that list in `README.md → Assumptions & limits` verbatim and in `validate.py` as a single `REQUIRED_FIELDS` constant. Ship `samples/schema_subset.json` as the schema. State clearly that it's a subset.
+
 ## What it does
 [A Malaysian micro-SME owner pastes a WhatsApp order / receipt text (or a photo path). The agent extracts buyer, items, amounts, SST, and produces an LHDN MyInvois-compliant e-invoice JSON, validates required fields (TIN, MSIC code, classification codes, currency MYR), and prints a plain-English + Bahasa Malaysia list of anything missing.]
 
