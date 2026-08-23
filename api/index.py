@@ -335,12 +335,16 @@ def _top_risk(stations):
     return best.get("status")
 
 
+RISK_ZH = {"DANGER": "危险", "WARNING": "警告", "ALERT": "警戒", "NORMAL": "正常", "OFFLINE": "离线", "UNKNOWN": "未知"}
+
+
 def _build_explanation(place, stations, risk, forecast, warnings, relief):
-    """Deterministic BM/EN summary. Demo works even when Qwen key is missing."""
+    """Deterministic BM/EN/ZH summary. Demo works even when Qwen key is missing."""
     if not stations:
         return {
-            "bm": f"Maaf, kami tidak pasti di mana {place}. Cuba taip nama bandar/kawasan yang hampir.",
             "en": f"Sorry, we couldn't locate {place}. Try a nearby town or district.",
+            "bm": f"Maaf, kami tidak pasti di mana {place}. Cuba taip nama bandar/kawasan yang hampir.",
+            "zh": f"找不到「{place}」。请试试附近城镇或县区的名称。",
             "risk_level": None,
             "risk_color": "gray",
         }
@@ -350,41 +354,50 @@ def _build_explanation(place, stations, risk, forecast, warnings, relief):
     status = top.get("status")
     trend = top.get("trend", "")
     warn_count = len(warnings or [])
-    forecast_text = forecast.get("summary_bm") if forecast else "no forecast"
-    forecast_en = forecast.get("summary_en") if forecast else "no forecast"
+    forecast_bm = (forecast or {}).get("summary_bm") or "no forecast"
+    forecast_en = (forecast or {}).get("summary_en") or "no forecast"
+    status_zh = RISK_ZH.get(status, status or "")
 
     if status in ("DANGER", "WARNING"):
         bm = (f"Paras air terhampir {place} di {top['name']} ({top['district']}) adalah {level_text} - {status}. "
               f"Arahan: berpindah segera jika diarahkan. Terdapat {warn_count} amaran MET aktif. "
-              f"Ramalan: {forecast_text}.")
+              f"Ramalan: {forecast_bm}.")
         en = (f"The nearest river level to {place} at {top['name']} ({top['district']}) is {level_text} - {status}. "
               f"Action: evacuate immediately if told. There are {warn_count} active MET warnings. "
               f"Forecast: {forecast_en}.")
+        zh = (f"{place}附近最近的水利灌溉局站点是 {top['name']}（{top['district']}），水位 {level_text}，处于{status_zh}状态。"
+              f"请留意疏散指令。气象局有 {warn_count} 个活跃警报。24小时天气：{forecast_en}。")
     elif status == "ALERT":
         bm = (f"Paras air di {top['name']} ({top['district']}) mencecah ambang {status.lower()}: {level_text}. "
               f"Arahan: peka, sediakan beg kecemasan, pantau maklumat terkini. Trend: {trend}. "
-              f"Ramalan 24 jam: {forecast_text}.")
+              f"Ramalan 24 jam: {forecast_bm}.")
         en = (f"The river level at {top['name']} ({top['district']}) has hit the {status} threshold: {level_text}. "
               f"Action: stay alert, prepare an emergency bag, watch for updates. Trend: {trend}. "
               f"24h forecast: {forecast_en}.")
+        zh = (f"{place}附近的 {top['name']}（{top['district']}）水位 {level_text}，达到{status_zh}水平。"
+              f"请提高警惕，准备应急包，并关注最新消息。趋势：{trend}。24小时天气：{forecast_en}。")
     elif status == "NORMAL":
         bm = (f"Paras air di {top['name']} ({top['district']}) berada di paras normal ({level_text}). "
-              f"Trend: {trend}. Ramalan 24 jam: {forecast_text}. Terus peka kepada amaran banjir.")
+              f"Trend: {trend}. Ramalan 24 jam: {forecast_bm}. Terus peka kepada amaran banjir.")
         en = (f"The river level at {top['name']} ({top['district']}) is normal ({level_text}). "
               f"Trend: {trend}. 24h forecast: {forecast_en}. Stay alert for flood warnings.")
+        zh = (f"{place}附近的 {top['name']}（{top['district']}）水位 {level_text}，状态{status_zh}。"
+              f"趋势：{trend}。24小时天气：{forecast_en}。请继续关注水灾警报。")
     else:
         bm = (f"Stesen terhampir {place}, {top['name']}, tiada bacaan terkini atau ambang tidak tersedia. "
-              f"Trend: {trend}. Ramalan 24 jam: {forecast_text}.")
+              f"Trend: {trend}. Ramalan 24 jam: {forecast_bm}.")
         en = (f"The nearest station to {place}, {top['name']}, has no current reading or thresholds. "
               f"Trend: {trend}. 24h forecast: {forecast_en}.")
+        zh = (f"{place}附近的 {top['name']} 站点目前没有最新数据或阈值。"
+              f"趋势：{trend}。24小时天气：{forecast_en}。")
 
-    return {"en": en, "bm": bm, "risk_level": status, "risk_color": RISK_COLOR.get(status, "gray")}
+    return {"en": en, "bm": bm, "zh": zh, "risk_level": status, "risk_color": RISK_COLOR.get(status, "gray")}
 
 
 def _extract_json(text):
     """Qwen sometimes wraps JSON in markdown, adds trailing commas, or extra text.
 
-    Returns {"en": ..., "bm": ...} or None.
+    Returns {"en": ..., "bm": ..., "zh": ...} or None.
     """
     if not text:
         return None
@@ -400,27 +413,39 @@ def _extract_json(text):
     try:
         data = json.loads(blob)
         if "en" in data and "bm" in data:
-            return {"en": data.get("en"), "bm": data.get("bm")}
+            return {
+                "en": data.get("en"),
+                "bm": data.get("bm"),
+                "zh": data.get("zh") or data.get("bm"),
+            }
     except Exception:
         pass
-    # Last resort: pull the two quoted values directly
+    # Last resort: pull the quoted values directly
     en_m = re.search(r'"en"\s*:\s*"((?:\\.|[^"\\])*)"', blob, re.S)
     bm_m = re.search(r'"bm"\s*:\s*"((?:\\.|[^"\\])*)"', blob, re.S)
+    zh_m = re.search(r'"zh"\s*:\s*"((?:\\.|[^"\\])*)"', blob, re.S)
     if en_m and bm_m:
         return {
             "en": en_m.group(1).replace('\\"', '"').replace('\\\\', '\\'),
             "bm": bm_m.group(1).replace('\\"', '"').replace('\\\\', '\\'),
+            "zh": (zh_m or bm_m).group(1).replace('\\"', '"').replace('\\\\', '\\'),
         }
     return None
 
 
-def _qwen_call(prompt, fallback_dict, max_tokens=200):
+def _qwen_call(prompt, fallback_dict, max_tokens=300):
     """Call Qwen/ModelScope if configured; otherwise return the deterministic fallback."""
+    def _with_zh(fd):
+        out = dict(fd)
+        if not out.get("zh"):
+            out["zh"] = out.get("bm") or out.get("en") or ""
+        return out
+
     key = os.environ.get("QWEN_API_KEY")
     base = os.environ.get("QWEN_BASE_URL", "https://api-inference.modelscope.ai/v1")
     model = os.environ.get("QWEN_MODEL", "Qwen-Ambassador/Qwen3.8-Max")
     if not key:
-        return dict(fallback_dict, fallback=True, model=None, llm_error="QWEN_API_KEY not set")
+        return {**_with_zh(fallback_dict), "fallback": True, "model": None, "llm_error": "QWEN_API_KEY not set"}
 
     try:
         r = requests.post(
@@ -439,25 +464,32 @@ def _qwen_call(prompt, fallback_dict, max_tokens=200):
         payload = r.json()
         text = payload.get("choices", [{}])[0].get("message", {}).get("content")
         if not text:
-            return dict(fallback_dict, fallback=True, model=model, llm_error="empty content from Qwen")
+            return {**_with_zh(fallback_dict), "fallback": True, "model": model, "llm_error": "empty content from Qwen"}
 
         parsed = _extract_json(text)
         if parsed:
-            return {"en": parsed["en"], "bm": parsed["bm"], "fallback": False, "model": model}
+            return {"en": parsed["en"], "bm": parsed["bm"], "zh": parsed["zh"], "fallback": False, "model": model}
 
-        # Truncated / malformed JSON: salvage the quoted "en"/"bm" strings so the UI never shows raw braces.
+        # Truncated / malformed JSON: salvage the quoted "en"/"bm"/"zh" strings so the UI never shows raw braces.
         import re as _re
         def _grab(k):
             m = _re.search(r'"%s"\s*:\s*"((?:[^"\\]|\\.)*)' % k, text, _re.S)
             return m.group(1).encode().decode("unicode_escape", "ignore").strip() if m else None
-        en, bm = _grab("en"), _grab("bm")
+        en, bm, zh = _grab("en"), _grab("bm"), _grab("zh")
         if en:
-            return {"en": en, "bm": bm or fallback_dict.get("bm", en), "fallback": False, "model": model, "llm_error": "partial JSON salvaged"}
+            return {
+                "en": en,
+                "bm": bm or _with_zh(fallback_dict).get("bm", en),
+                "zh": zh or _with_zh(fallback_dict).get("zh", bm or en),
+                "fallback": False,
+                "model": model,
+                "llm_error": "partial JSON salvaged",
+            }
         if text.lstrip().startswith("{"):
-            return dict(fallback_dict, fallback=True, model=model, llm_error="unparseable JSON from Qwen")
-        return {"en": text.strip(), "bm": text.strip(), "fallback": False, "model": model}
+            return {**_with_zh(fallback_dict), "fallback": True, "model": model, "llm_error": "unparseable JSON from Qwen"}
+        return {**_with_zh(fallback_dict), "fallback": True, "model": model, "llm_error": "non-JSON output from Qwen"}
     except Exception as e:
-        return dict(fallback_dict, fallback=True, model=model, llm_error=str(e))
+        return {**_with_zh(fallback_dict), "fallback": True, "model": model, "llm_error": str(e)}
 
 
 def _compact(data):
@@ -504,7 +536,12 @@ def _status_summary(data):
 def _qwen_explanation(place, data, fallback):
     compact = _compact(data)
     prompt = (
-        "Return JSON {en, bm}. ~25 words each. "
+        "Return strictly JSON {en, bm, zh}. ~25 words each. "
+        "The zh text must be Simplified Chinese as used by Malaysian Chinese (e.g. 星洲日报/中国报 style), not mainland register. "
+        "Keep Malay place, river and station names unchanged (e.g. Sg. Tua di Emp. Batu, Gombak). "
+        "Use Malaysian-Chinese terms: 水灾 for flood, 疏散中心 for relief centre, 消拯局 for Bomba, "
+        "水利灌溉局 for JPS, 气象局 for MET, 甘榜 for kampung, warning levels 警戒/警告/危险. "
+        "Plain, short sentences; no mainland idioms or political phrasing. "
         f"Place: {place}. State: {compact.get('state')}. "
         f"Station: {compact.get('station_name')} ({compact.get('station_district')}). "
         f"Level: {compact.get('station_level')} m. Status: {compact.get('station_status')}. "
@@ -513,19 +550,24 @@ def _qwen_explanation(place, data, fallback):
         f"Trend: {compact.get('trend')}. Warnings: {compact.get('warnings_count')}. "
         f"Forecast: {compact.get('forecast_en')} / {compact.get('forecast_bm')}."
     )
-    return _qwen_call(prompt, fallback, max_tokens=120)
+    return _qwen_call(prompt, fallback, max_tokens=180)
 
 
 def _qwen_pitch(place, data, fallback):
     compact = _compact(data)
     prompt = (
-        "Return JSON {en, bm}. ~60 words each. Sell Banjir as a live flood agent. "
+        "Return strictly JSON {en, bm, zh}. ~60 words each. Sell Banjir as a live flood agent. "
+        "The zh text must be Simplified Chinese as used by Malaysian Chinese (e.g. 星洲日报/中国报 style), not mainland register. "
+        "Keep Malay place, river and station names unchanged (e.g. Sg. Tua di Emp. Batu, Gombak). "
+        "Use Malaysian-Chinese terms: 水灾 for flood, 疏散中心 for relief centre, 消拯局 for Bomba, "
+        "水利灌溉局 for JPS, 气象局 for MET, 甘榜 for kampung, warning levels 警戒/警告/危险. "
+        "Plain, short sentences; no mainland idioms or political phrasing. "
         f"Place: {place}. State: {compact.get('state')}. "
         f"Station: {compact.get('station_name')}. Level: {compact.get('station_level')} m. "
         f"Status: {compact.get('station_status')}. Alert: {compact.get('thresholds', {}).get('alert')}. "
         f"Trend: {compact.get('trend')}. Forecast: {compact.get('forecast_en')} / {compact.get('forecast_bm')}."
     )
-    return _qwen_call(prompt, fallback, max_tokens=600)
+    return _qwen_call(prompt, fallback, max_tokens=900)
 
 
 # ---------------------------------------------------------------------------
@@ -573,6 +615,7 @@ def _status_core(place: str, include_news: bool = True):
             "suggestions": suggestions,
             "message_en": f"We couldn't find '{place}'. Try one of these nearby areas:",
             "message_bm": f"Kami tidak jumpa '{place}'. Cuba kawasan berikut:",
+            "message_zh": f"找不到「{place}」。请试试以下邻近地区：",
             "generated_at": _now().isoformat(),
             "sources": [{
                 "name": "JPS Malaysia",
@@ -704,9 +747,11 @@ def pitch(place: str = Query(..., min_length=1, description="Place name in Malay
 
     fallback = {
         "en": (f"This is Banjir. I just checked river levels, MET warnings, the forecast, and relief centres for {place}. "
-               "Get live flood status in Bahasa Malaysia and English, anytime."),
+               "Get live flood status in Bahasa Malaysia, English and Chinese, anytime."),
         "bm": (f"Ini Banjir. Baru sahaja saya semak data sungai, amaran MET, ramalan, dan pusat pemindahan untuk {place}. "
-               "Dapatkan status banjir terkini dalam Bahasa Malaysia dan English pada bila-bila masa."),
+               "Dapatkan status banjir terkini dalam Bahasa Malaysia, English dan Bahasa Cina pada bila-bila masa."),
+        "zh": (f"这是 Banjir。我刚刚查询了 {place} 的水利灌溉局水位、气象局警报、天气预报和疏散中心。"
+               "随时以英语、国语或中文掌握最新水灾情况。"),
     }
 
     pitch = _qwen_pitch(place, _status_summary(data), fallback)
@@ -715,6 +760,7 @@ def pitch(place: str = Query(..., min_length=1, description="Place name in Malay
         "place": place,
         "pitch_en": pitch.get("en"),
         "pitch_bm": pitch.get("bm"),
+        "pitch_zh": pitch.get("zh"),
         "fallback": pitch.get("fallback", True),
         "model": pitch.get("model"),
         "llm_error": pitch.get("llm_error"),
