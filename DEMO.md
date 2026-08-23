@@ -1,6 +1,6 @@
 # DEMO.md — Banjir live demo
 
-**Live URL:** https://hackathon-claw-2026.vercel.app
+**Live URL:** https://banjirai.vercel.app
 
 ## Prereqs
 - Python 3.11+

@@ -13,7 +13,7 @@ import sys
 import urllib.parse
 import urllib.request
 
-PROD = "https://hackathon-claw-2026.vercel.app"
+PROD = "https://banjirai.vercel.app"
 BOT_TOKEN = "8786119365:AAFFuuArbsaza52vMq20MbU5wmAzBsCbMmw"
 DEFAULT_CHAT = "5116627802"
 

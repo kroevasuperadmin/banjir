@@ -1,6 +1,6 @@
 # 5-minute finalist pitch (5:00 PM) + 3-min Q&A
 
-Rules: no deck needed. Don't explain the code. Don't say "we ran out of time." Look at the judges before you start. Phone in hand, Telegram open on @banjir_ai_bot, laptop mirrored/projected on https://hackathon-claw-2026.vercel.app.
+Rules: no deck needed. Don't explain the code. Don't say "we ran out of time." Look at the judges before you start. Phone in hand, Telegram open on @banjir_ai_bot, laptop mirrored/projected on https://banjirai.vercel.app.
 
 ## The story in one line
 Banjir doesn't wait to be asked — it watches Malaysia's rivers 24/7 and speaks for itself.
