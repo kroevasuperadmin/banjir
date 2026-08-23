@@ -6,3 +6,5 @@ node_modules/
 data/.met_cache.json
 devin-session.json
 devin-run.log
+
+.vercel

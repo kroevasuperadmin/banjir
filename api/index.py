@@ -147,15 +147,11 @@ def _suggest(place, stations):
     # Start with a few known high-profile districts so an empty query still gets examples
     known = ["gombak", "kuala lumpur", "kota bharu", "petaling jaya", "johor bahru", "george town", "kuching", "kota kinabalu"]
     targets = list({jps._norm(s["district"]) for s in stations}) + \
-              [jps._norm(n) for n in jps.STATES.values()] + known
+              [jps._norm(n) for n in jps.STATES.values()]
     targets = list(set(targets))
-    matches = difflib.get_close_matches(q, targets, n=5, cutoff=0.3)
-    if not matches:
-        scored = [(difflib.SequenceMatcher(None, q, t).ratio(), t) for t in targets]
-        scored.sort(key=lambda x: -x[0])
-        matches = [t for s, t in scored if s >= 0.15][:5]
-    # if still nothing, return the canned examples
-    return matches if matches else known[:5]
+    matches = difflib.get_close_matches(q, targets, n=8, cutoff=0.7)
+    # if the query doesn't look like any Malaysian district/state, show the 8 common examples
+    return matches if matches else known
 
 
 # ---------------------------------------------------------------------------
@@ -386,22 +382,20 @@ def _status_data(place: str):
     # 2. if unknown place
     if not nearest:
         suggestions = _suggest(place, stations)
-        return JSONResponse({
-            "ok": True,
+        return {
+            "ok": False,
             "place": place,
             "place_not_found": True,
             "suggestions": suggestions,
-            "message": {
-                "bm": f"Kami tidak jumpa '{place}'. Cuba kawasan berikut:",
-                "en": f"We couldn't find '{place}'. Try one of these nearby areas:",
-            },
+            "message_bm": f"Kami tidak jumpa '{place}'. Cuba kawasan berikut:",
+            "message_en": f"We couldn't find '{place}'. Try one of these nearby areas:",
             "generated_at": _now().isoformat(),
             "sources": [{
                 "name": "JPS Malaysia",
                 "url": "https://publicinfobanjir.water.gov.my",
                 "status": "no station match",
             }],
-        })
+        }
 
     # 3. attach trend using state rainfall
     _attach_trend(nearest, state_code)

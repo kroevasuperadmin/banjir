@@ -1,0 +1,31 @@
+Smoke test is green and committed.
+
+**Local curl smoke test**
+```bash
+curl -s http://127.0.0.1:8000/api/status?place=Gombak
+```
+Result: `place: Gombak`, `state: WP Kuala Lumpur`, `risk: ALERT`, top station `Sg. Tua di Emp. Batu` at `103.21 m` (alert 103.1), forecast `Tiada Hujan / No rain`, 3 MET warnings, JKM relief feed available.
+
+**What works**
+- `GET /api/status?place=Gombak` (and others) — live JPS, MET, JKM, hotlines, checklist
+- `GET /api/pitch?place=Gombak` — BM/EN 30-second pitch using today's real data
+- `GET /` — mobile-first web page with mic input and "Let Banjir pitch" narration
+- Edge cases: unknown place returns `place_not_found` + suggestions; offline JPS stations show "no reading"; JPS-down fallback uses disk cache with a `cached` badge
+- Commit: `devin: smoke test green ...`
+
+**Deployment blocker — Vercel auth**
+The stored Vercel token in `reference_vercel.md` is invalid (`Not authorized`). To finish the Vercel URL I need one of:
+1. Visit the Vercel device URL and approve, then I run `vercel --yes`.
+2. Provide a valid Vercel token.
+
+Once you choose, I'll deploy and replace the placeholder in `README.md` with the live URL.
+
+**Env vars needed**
+- `QWEN_BASE_URL` (default `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`)
+- `QWEN_API_KEY` (optional; falls back to deterministic templates)
+- `QWEN_MODEL` (default `qwen3.8-max`)
+- `BANJIR_API_BASE` (default `http://localhost:8000`)
+- `BANJIR_JPS_CACHE`, `BANJIR_MET_CACHE` (optional)
+
+**Files in repo**
+`.env.example`, `.gitignore`, `BATTLE_PLAN.md`, `DEMO.md`, `DEVIN_CLI.md`, `DEVIN_PROMPT.md`, `EVIDENCE.md`, `HERMES_SETUP.md`, `NOTES_vVDk9xkwaL8.md`, `PITCH.md`, `README.md`, `TRANSCRIPT_vVDk9xkwaL8.md`, `api/__init__.py`, `api/index.py`, `data/EMERGENCY.md`, `data/JPS_NOTES.md`, `data/MET_NOTES.md`, `data/emergency.py`, `data/jps.py`, `data/met.py`, `data/places.py`, `data/pps.py`, `hermes/SKILL.md`, `hermes/SOUL.md`, `hermes/plugins/banjir/__init__.py`, `hermes/plugins/banjir/plugin.yaml`, `pyproject.toml`, `requirements.txt`, `run_demo.ps1`, `run_demo.sh`, `samples/*`, `vercel.json`, `web/index.html`.

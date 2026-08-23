@@ -69,7 +69,7 @@ function badge(status){
 
 function render(data){
   if(data.place_not_found){
-    output.innerHTML = `<div class="card"><div class="title">${data.message.bm}</div><p>${data.message.en}</p>` +
+    output.innerHTML = `<div class="card"><div class="title">${data.message_bm}</div><p>${data.message_en}</p>` +
       (data.suggestions.length? `<ul>${data.suggestions.map(s=>`<li>${s}</li>`).join('')}</ul>`:'')+'</div>';
     return;
   }
