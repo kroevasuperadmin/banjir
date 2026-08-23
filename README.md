@@ -44,14 +44,15 @@ Malaysians get flood warnings through disconnected official portals and one-way 
 |---|---|---|---|
 | **Devin** (Cognition) | Built the repo and the API | `api/index.py`, `web/index.html`, `data/emergency.py` | Writes/updates the FastAPI app, the web page, and the emergency parser |
 | **Hermes Agent** | Agent runtime | `hermes/plugins/banjir/`, `hermes/SOUL.md`, `hermes/SKILL.md` | Telegram bot calls `flood_status(place)` → `GET /api/status?place=`; web and Telegram share the same API |
-| **Qwen 3.8** | LLM | `api/index.py` (`_qwen_call`) | Turns live readings into BM/EN explanation and narrated pitch; falls back to deterministic templates if the key is missing so the demo never dies |
+| **Qwen 3.8** | LLM | `api/index.py` (`_qwen_call`) | Turns live readings into EN/BM/ZH explanation and narrated pitch; falls back to deterministic trilingual templates if the key is missing so the demo never dies |
 
 Data sources at runtime: JPS Public InfoBanjir (`data/jps.py`), MET Malaysia via data.gov.my (`data/met.py`), JKM InfoBencana (`data/pps.py`), official hotlines + checklist (`data/EMERGENCY.md` → `data/emergency.py`).
 
 ## Functionality
 
+- Trilingual: English, Bahasa Malaysia, 中文 — all from the same live readings.
 - `GET /api/status?place=Gombak` — live JPS river stations with Alert/Warning/Danger thresholds, MET warnings, 24h forecast, relief centres, emergency checklist, hotlines.
-- `GET /api/pitch?place=Gombak` — 30-second agent pitch in BM/EN using today's real readings.
+- `GET /api/pitch?place=Gombak` — 30-second agent pitch in EN/BM/ZH using today's real readings.
 - `GET /` — mobile-first web page: type or say a place, see cards, tap "Let Banjir pitch" for spoken narration.
 - Three edge cases handled in the API and web:
   1. Unknown place → `place_not_found: true` + suggested nearby districts.
